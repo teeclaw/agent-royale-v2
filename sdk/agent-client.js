@@ -6,7 +6,7 @@
  * state backup, dispute initiation.
  *
  * Usage:
- *   const client = new AgentCasinoClient('https://api.agentroyale.xyz/a2a/casino');
+ *   const client = new AgentCasinoClient('https://www.agentroyale.xyz/api/a2a/casino');
  *   await client.startSession('0.1');
  *   const result = await client.playSlots('0.001');
  *   console.log(result.reels, result.payout);
@@ -21,7 +21,7 @@ const path = require('path');
 
 class AgentCasinoClient {
   constructor(casinoUrl, options = {}) {
-    this.casinoUrl = casinoUrl; // Must be full A2A endpoint, e.g. https://api.agentroyale.xyz/a2a/casino
+    this.casinoUrl = casinoUrl; // Must be full A2A endpoint, e.g. https://www.agentroyale.xyz/api/a2a/casino
     this.backupDir = options.backupDir || './casino-states';
     this.stealth = null;
     this.states = [];

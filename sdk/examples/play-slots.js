@@ -8,7 +8,7 @@
 
 const AgentCasinoClient = require('../agent-client');
 
-const CASINO_URL = process.argv[2] || 'https://api.agentroyale.xyz/a2a/casino';
+const CASINO_URL = process.argv[2] || 'https://www.agentroyale.xyz/api/a2a/casino';
 const DEPOSIT = process.argv[3] || '0.01';
 const BET = process.argv[4] || '0.001';
 const SPINS = parseInt(process.argv[5] || '10');

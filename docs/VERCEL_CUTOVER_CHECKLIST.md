@@ -14,7 +14,7 @@ Goal: Agent Royale production runs without Caddy/VM dependency.
 
 ## 3) API health (must pass)
 - `https://agentroyale.xyz/api/health`
-- `https://api.agentroyale.xyz/api/health` (if routed to same app path style)
+- `https://www.agentroyale.xyz/api/health`
 - `https://agentroyale.xyz/api/dashboard/state`
 
 ## 4) Gameplay smoke test (must pass on Vercel)

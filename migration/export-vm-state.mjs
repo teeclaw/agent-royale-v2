@@ -4,13 +4,13 @@
  *
  * Usage:
  *   node migration/export-vm-state.mjs
- *   API_BASE=https://api.agentroyale.xyz node migration/export-vm-state.mjs
+ *   API_BASE=https://www.agentroyale.xyz/api node migration/export-vm-state.mjs
  */
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const API_BASE = process.env.API_BASE || 'https://api.agentroyale.xyz';
+const API_BASE = process.env.API_BASE || 'https://www.agentroyale.xyz/api';
 
 async function getJson(url) {
   const res = await fetch(url);
