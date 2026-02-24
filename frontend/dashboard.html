@@ -231,6 +231,11 @@
       return addr.slice(0, 6) + '...' + addr.slice(-4);
     }
 
+    function formatEth3(v) {
+      const n = Number(v || 0);
+      return Number.isFinite(n) ? n.toFixed(3) : '0.000';
+    }
+
     async function refresh() {
       try {
         const res = await fetch(`${API}/api/dashboard/state`);
@@ -243,15 +248,15 @@
         document.getElementById('stats').innerHTML = `
           <div class="stat-card">
             <div class="stat-card__label">House Treasury</div>
-            <div class="stat-card__value">${data.funds?.houseTreasury || '0'} ETH</div>
+            <div class="stat-card__value">${formatEth3(data.funds?.houseTreasury)} ETH</div>
           </div>
           <div class="stat-card">
             <div class="stat-card__label">Channel Escrow</div>
-            <div class="stat-card__value">${data.funds?.channelEscrow || '0'} ETH</div>
+            <div class="stat-card__value">${formatEth3(data.funds?.channelEscrow)} ETH</div>
           </div>
           <div class="stat-card">
             <div class="stat-card__label">Total Managed</div>
-            <div class="stat-card__value">${data.funds?.totalManaged || '0'} ETH</div>
+            <div class="stat-card__value">${formatEth3(data.funds?.totalManaged)} ETH</div>
           </div>
           <div class="stat-card">
             <div class="stat-card__label">Onchain Active Channels</div>
