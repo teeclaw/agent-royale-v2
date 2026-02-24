@@ -233,7 +233,7 @@
 
     async function refresh() {
       try {
-        const res = await fetch(`${API}/dashboard/state`);
+        const res = await fetch(`${API}/api/dashboard/state`);
         const data = await res.json();
 
         document.getElementById('status-text').textContent = 'live';

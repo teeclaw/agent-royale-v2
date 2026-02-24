@@ -314,7 +314,7 @@
 
     async function loadAgentList() {
       try {
-        const res = await fetch('/arena/agents');
+        const res = await fetch('/api/arena/agents');
         if (!res.ok) return;
         const agents = await res.json();
         renderAgentList(agents);
