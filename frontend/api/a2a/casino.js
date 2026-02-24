@@ -1,13 +1,461 @@
-module.exports = async (req, res) => {
-  res.status(503).json({
+const crypto = require('crypto');
+const { rest, hasConfig } = require('../_supabase');
+
+const CASINO_NAME = 'AgentCasino';
+const COMMIT_TTL_MS = 5 * 60 * 1000;
+
+function reply(res, content, status = 200) {
+  return res.status(status).json({
     version: '0.3.0',
-    from: { name: 'AgentCasino' },
-    message: {
-      contentType: 'application/json',
-      content: {
-        error: true,
-        message: 'Write path not migrated yet. Phase 1 is read-only on Vercel/Supabase.',
-      },
+    from: { name: CASINO_NAME },
+    message: { contentType: 'application/json', content },
+  });
+}
+
+function err(res, message, status = 400, code = 'BAD_REQUEST') {
+  return reply(res, { error: true, code, message }, status);
+}
+
+function shortAddr(addr = '') {
+  if (addr.startsWith('0x') && addr.length > 10) return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  return addr;
+}
+
+function toNum(x, d = 0) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : d;
+}
+
+function sha256(s) {
+  return crypto.createHash('sha256').update(String(s)).digest('hex');
+}
+
+function randHex(bytes = 32) {
+  return crypto.randomBytes(bytes).toString('hex');
+}
+
+function nowIso() { return new Date().toISOString(); }
+
+async function getOpenChannel(agent) {
+  const rows = await rest(`casino_channels?select=*&agent=eq.${encodeURIComponent(agent)}&status=eq.open&limit=1`);
+  return rows?.[0] || null;
+}
+
+async function updateChannel(id, patch) {
+  const rows = await rest(`casino_channels?id=eq.${id}`, {
+    method: 'PATCH',
+    body: { ...patch, updated_at: nowIso() },
+    prefer: 'return=representation',
+  });
+  return rows?.[0] || null;
+}
+
+async function insertEvent(type, action, agent, result) {
+  await rest('casino_events', {
+    method: 'POST',
+    body: [{ ts: nowIso(), type, action, agent, result }],
+  }).catch(() => {});
+}
+
+async function upsertGameStats(game, wagerDelta = 0, payoutDelta = 0, roundDelta = 1) {
+  const rows = await rest(`casino_game_stats?select=game,total_rounds,total_wagered,total_paid_out&game=eq.${encodeURIComponent(game)}&limit=1`).catch(() => []);
+  if (!rows || rows.length === 0) {
+    await rest('casino_game_stats', {
+      method: 'POST',
+      body: [{ game, total_rounds: roundDelta, total_wagered: wagerDelta, total_paid_out: payoutDelta }],
+    });
+    return;
+  }
+  const r = rows[0];
+  await rest(`casino_game_stats?game=eq.${encodeURIComponent(game)}`, {
+    method: 'PATCH',
+    body: {
+      total_rounds: toNum(r.total_rounds) + roundDelta,
+      total_wagered: toNum(r.total_wagered) + wagerDelta,
+      total_paid_out: toNum(r.total_paid_out) + payoutDelta,
     },
   });
+}
+
+async function insertRound(payload) {
+  await rest('casino_rounds', { method: 'POST', body: [payload] });
+}
+
+async function getStoredRequest(requestKey) {
+  const rows = await rest(`casino_requests?select=id,response,status,created_at&request_key=eq.${encodeURIComponent(requestKey)}&limit=1`).catch(() => []);
+  return rows?.[0] || null;
+}
+
+async function putStoredRequest(requestKey, action, agent, response, status = 'done') {
+  const existing = await getStoredRequest(requestKey);
+  if (existing) {
+    await rest(`casino_requests?request_key=eq.${encodeURIComponent(requestKey)}`, {
+      method: 'PATCH', body: { response, status },
+    });
+    return;
+  }
+  await rest('casino_requests', {
+    method: 'POST',
+    body: [{ request_key: requestKey, action, agent, status, response, created_at: nowIso() }],
+  });
+}
+
+function reelFromHash(hash, offset) {
+  const n = parseInt(hash.slice(offset, offset + 8), 16) % 100;
+  if (n < 30) return 0;
+  if (n < 55) return 1;
+  if (n < 75) return 2;
+  if (n < 90) return 3;
+  return 4;
+}
+
+function slotsOutcome(seedA, seedB, nonce) {
+  const h = sha256(`${seedA}${seedB}${nonce}`);
+  const r0 = reelFromHash(h, 0);
+  const r1 = reelFromHash(h, 8);
+  const r2 = reelFromHash(h, 16);
+  const names = ['cherry', 'lemon', 'orange', 'diamond', 'seven'];
+  const payouts = [5, 10, 25, 50, 290];
+  const same = r0 === r1 && r1 === r2;
+  const multiplier = same ? payouts[r0] : 0;
+  return { reelIndices: [r0, r1, r2], reels: [names[r0], names[r1], names[r2]], multiplier, resultHash: h };
+}
+
+function coinflipOutcome(seedA, seedB, nonce, choice) {
+  const h = sha256(`${seedA}${seedB}${nonce}`);
+  const bit = parseInt(h.slice(0, 2), 16) % 2;
+  const result = bit === 0 ? 'heads' : 'tails';
+  const won = result === choice;
+  return { result, won, resultHash: h };
+}
+
+function validateAddress(a) {
+  return typeof a === 'string' && a.startsWith('0x') && a.length === 42;
+}
+
+async function ensureDraw() {
+  const existing = await rest('casino_lotto_draws?select=*&drawn=eq.false&order=draw_id.desc&limit=1').catch(() => []);
+  if (existing && existing[0]) return existing[0];
+
+  const last = await rest('casino_lotto_draws?select=draw_id&order=draw_id.desc&limit=1').catch(() => []);
+  const nextId = (last?.[0]?.draw_id || 0) + 1;
+  const drawTime = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString();
+  const commitment = sha256(randHex(32));
+  const rows = await rest('casino_lotto_draws', {
+    method: 'POST',
+    body: [{ draw_id: nextId, commitment, draw_time: drawTime, drawn: false }],
+  });
+  return rows[0];
+}
+
+module.exports = async (req, res) => {
+  if (!hasConfig()) return err(res, 'Supabase env not configured', 500, 'SERVER_CONFIG');
+
+  const content = req.body?.message?.content || {};
+  const action = content.action;
+  const agent = content.stealthAddress;
+
+  if (!action) return err(res, 'Missing action');
+
+  // Read-only actions
+  if (action === 'info') {
+    return reply(res, {
+      name: 'Agent Royale',
+      mode: 'vercel-supabase-phase2',
+      privacy: 'Stealth addresses + state updates in Supabase',
+      actions: ['open_channel','close_channel','channel_status','slots_commit','slots_reveal','coinflip_commit','coinflip_reveal','lotto_buy','lotto_status','info','stats'],
+    });
+  }
+
+  if (action === 'stats') {
+    const rows = await rest('casino_game_stats?select=game,total_rounds,total_wagered,total_paid_out').catch(() => []);
+    const out = {};
+    for (const r of rows || []) out[r.game] = r;
+    return reply(res, out);
+  }
+
+  if (!validateAddress(agent)) return err(res, 'Invalid or missing stealthAddress');
+
+  const idemKey = req.headers['x-idempotency-key'] || sha256(JSON.stringify(content));
+  if (['open_channel','close_channel','slots_reveal','coinflip_reveal','lotto_buy'].includes(action)) {
+    const prev = await getStoredRequest(idemKey);
+    if (prev?.response && prev.status === 'done') return reply(res, prev.response);
+  }
+
+  try {
+    if (action === 'open_channel') {
+      const existing = await getOpenChannel(agent);
+      if (existing) return err(res, 'Channel already exists', 409, 'CHANNEL_ALREADY_EXISTS');
+
+      const agentDeposit = toNum(content.agentDeposit, toNum(content.params?.agentDeposit, 0));
+      const casinoDeposit = toNum(content.casinoDeposit, toNum(content.params?.casinoDeposit, agentDeposit));
+      if (agentDeposit < 0.001 || casinoDeposit <= 0) return err(res, 'Min deposit: 0.001 ETH', 400, 'INVALID_DEPOSIT');
+
+      await rest('casino_channels', {
+        method: 'POST',
+        body: [{
+          agent,
+          status: 'open',
+          agent_deposit: agentDeposit,
+          casino_deposit: casinoDeposit,
+          agent_balance: agentDeposit,
+          casino_balance: casinoDeposit,
+          nonce: 0,
+          games_played: 0,
+          opened_at: nowIso(),
+          updated_at: nowIso(),
+        }],
+      });
+
+      const response = { status: 'open', agentBalance: String(agentDeposit), casinoBalance: String(casinoDeposit) };
+      await insertEvent('channel', 'open', shortAddr(agent), response);
+      await putStoredRequest(idemKey, action, agent, response);
+      return reply(res, response);
+    }
+
+    if (action === 'channel_status') {
+      const ch = await getOpenChannel(agent);
+      if (!ch) return err(res, 'Channel not found', 404, 'CHANNEL_NOT_FOUND');
+      return reply(res, {
+        status: 'open',
+        agentBalance: String(ch.agent_balance),
+        casinoBalance: String(ch.casino_balance),
+        nonce: Number(ch.nonce || 0),
+        gamesPlayed: Number(ch.games_played || 0),
+      });
+    }
+
+    if (action === 'close_channel') {
+      const ch = await getOpenChannel(agent);
+      if (!ch) return err(res, 'Channel not found', 404, 'CHANNEL_NOT_FOUND');
+
+      await updateChannel(ch.id, { status: 'closed' });
+      const response = {
+        agentBalance: String(ch.agent_balance),
+        casinoBalance: String(ch.casino_balance),
+        nonce: Number(ch.nonce || 0),
+        signature: 'vercel-supabase-phase2',
+        totalGames: Number(ch.games_played || 0),
+      };
+      await insertEvent('channel', 'close', shortAddr(agent), response);
+      await putStoredRequest(idemKey, action, agent, response);
+      return reply(res, response);
+    }
+
+    if (action === 'slots_commit' || action === 'coinflip_commit') {
+      const ch = await getOpenChannel(agent);
+      if (!ch) return err(res, 'Channel not found', 404, 'CHANNEL_NOT_FOUND');
+
+      const game = action.startsWith('slots') ? 'slots' : 'coinflip';
+      const pendingKey = `pending:${game}:${agent}`;
+      const pending = await getStoredRequest(pendingKey);
+      if (pending && pending.status === 'pending') return err(res, 'Pending commit exists for this game', 409, 'PENDING_COMMIT_EXISTS');
+
+      const betAmount = toNum(content.betAmount, toNum(content.params?.betAmount, 0));
+      const minBet = 0.0001;
+      if (betAmount < minBet) return err(res, `Min bet: ${minBet} ETH`, 400, 'INVALID_BET');
+
+      const casinoBal = toNum(ch.casino_balance);
+      const maxMultiplier = game === 'slots' ? 290 : 2;
+      const safetyMargin = 2;
+      const maxBet = casinoBal / (maxMultiplier * safetyMargin);
+      if (betAmount > maxBet) return err(res, `Max bet: ${maxBet} ETH (bankroll limit)`, 400, 'MAX_BET_EXCEEDED');
+
+      if (game === 'coinflip' && !['heads', 'tails'].includes(content.choice)) {
+        return err(res, 'choice must be heads or tails', 400, 'INVALID_CHOICE');
+      }
+
+      const casinoSeed = randHex(32);
+      const commitment = sha256(casinoSeed);
+      const pendingPayload = { commitment, casinoSeed, betAmount: String(betAmount), choice: content.choice || null };
+
+      await putStoredRequest(pendingKey, action, agent, pendingPayload, 'pending');
+      await rest('casino_commits', { method: 'POST', body: [{ agent, game, status: 'pending', created_at: nowIso() }] }).catch(() => {});
+
+      const out = game === 'coinflip'
+        ? { commitment, betAmount: String(betAmount), choice: content.choice }
+        : { commitment, betAmount: String(betAmount) };
+      return reply(res, out);
+    }
+
+    if (action === 'slots_reveal' || action === 'coinflip_reveal') {
+      const ch = await getOpenChannel(agent);
+      if (!ch) return err(res, 'Channel not found', 404, 'CHANNEL_NOT_FOUND');
+
+      const game = action.startsWith('slots') ? 'slots' : 'coinflip';
+      const pendingKey = `pending:${game}:${agent}`;
+      const pending = await getStoredRequest(pendingKey);
+      if (!pending || pending.status !== 'pending') return err(res, 'No pending commit', 400, 'COMMIT_NOT_FOUND');
+
+      const createdAt = new Date(pending.created_at).getTime();
+      if (Date.now() - createdAt > COMMIT_TTL_MS) {
+        await putStoredRequest(pendingKey, `${game}_commit`, agent, pending.response, 'expired');
+        return err(res, 'Commit expired', 400, 'COMMIT_EXPIRED');
+      }
+
+      const agentSeed = content.agentSeed;
+      if (!agentSeed) return err(res, 'agentSeed required', 400, 'INVALID_SEED');
+
+      const p = pending.response || {};
+      const bet = toNum(p.betAmount, 0);
+      const nonce = Number(ch.nonce || 0) + 1;
+      const agentBal = toNum(ch.agent_balance);
+      const casinoBal = toNum(ch.casino_balance);
+
+      let outcome;
+      let payout;
+      if (game === 'slots') {
+        outcome = slotsOutcome(p.casinoSeed, agentSeed, nonce);
+        payout = bet * outcome.multiplier;
+      } else {
+        outcome = coinflipOutcome(p.casinoSeed, agentSeed, nonce, p.choice);
+        payout = outcome.won ? bet * 1.9 : 0;
+      }
+
+      const nextAgent = agentBal - bet + payout;
+      const nextCasino = casinoBal + bet - payout;
+      if (nextAgent < 0 || nextCasino < 0) return err(res, 'Insufficient channel balance', 400, 'INSUFFICIENT_BALANCE');
+
+      const updated = await updateChannel(ch.id, {
+        agent_balance: nextAgent,
+        casino_balance: nextCasino,
+        nonce,
+        games_played: Number(ch.games_played || 0) + 1,
+      });
+
+      const round = {
+        agent,
+        game,
+        bet,
+        payout,
+        won: game === 'slots' ? outcome.multiplier > 0 : outcome.won,
+        multiplier: game === 'slots' ? outcome.multiplier : (outcome.won ? 1.9 : 0),
+        reels: game === 'slots' ? outcome.reelIndices : null,
+        choice: game === 'coinflip' ? p.choice : null,
+        result: game === 'coinflip' ? outcome.result : null,
+        nonce,
+        timestamp: nowIso(),
+      };
+      await insertRound(round);
+      await upsertGameStats(game, bet, payout, 1);
+      await insertEvent('game', action, shortAddr(agent), {
+        ...round,
+        reels: game === 'slots' ? outcome.reels : undefined,
+      });
+
+      await putStoredRequest(pendingKey, `${game}_commit`, agent, p, 'resolved');
+      await rest(`casino_commits?agent=eq.${encodeURIComponent(agent)}&game=eq.${encodeURIComponent(game)}&status=eq.pending`, {
+        method: 'PATCH', body: { status: 'resolved' },
+      }).catch(() => {});
+
+      const response = game === 'slots'
+        ? {
+            reels: outcome.reels,
+            reelIndices: outcome.reelIndices,
+            multiplier: outcome.multiplier,
+            payout: String(payout),
+            agentBalance: String(updated.agent_balance),
+            casinoBalance: String(updated.casino_balance),
+            nonce,
+            signature: 'vercel-supabase-phase2',
+            proof: { casinoSeed: p.casinoSeed, agentSeed, resultHash: outcome.resultHash },
+          }
+        : {
+            choice: p.choice,
+            result: outcome.result,
+            won: outcome.won,
+            payout: String(payout),
+            agentBalance: String(updated.agent_balance),
+            casinoBalance: String(updated.casino_balance),
+            nonce,
+            signature: 'vercel-supabase-phase2',
+            proof: { casinoSeed: p.casinoSeed, agentSeed, resultHash: outcome.resultHash },
+          };
+
+      await putStoredRequest(idemKey, action, agent, response);
+      return reply(res, response);
+    }
+
+    if (action === 'lotto_status') {
+      const draw = await ensureDraw();
+      const tickets = await rest(`casino_lotto_tickets?select=ticket_count,cost&draw_id=eq.${draw.draw_id}`).catch(() => []);
+      const totalTickets = (tickets || []).reduce((s, t) => s + Number(t.ticket_count || 0), 0);
+      const totalPool = (tickets || []).reduce((s, t) => s + Number(t.cost || 0), 0);
+      return reply(res, {
+        drawId: Number(draw.draw_id),
+        commitment: draw.commitment,
+        drawTime: new Date(draw.draw_time).getTime(),
+        ticketPrice: '0.001',
+        payoutMultiplier: 85,
+        range: 100,
+        totalTickets,
+        totalPool: String(totalPool),
+      });
+    }
+
+    if (action === 'lotto_buy') {
+      const ch = await getOpenChannel(agent);
+      if (!ch) return err(res, 'Channel not found', 404, 'CHANNEL_NOT_FOUND');
+
+      const pickedNumber = Number(content.pickedNumber);
+      const ticketCount = Number(content.ticketCount || 1);
+      if (!Number.isInteger(pickedNumber) || pickedNumber < 1 || pickedNumber > 100) return err(res, 'pickedNumber must be 1-100', 400, 'INVALID_PICK');
+      if (!Number.isInteger(ticketCount) || ticketCount < 1 || ticketCount > 10) return err(res, 'ticketCount must be 1-10', 400, 'INVALID_TICKET_COUNT');
+
+      const price = 0.001;
+      const cost = price * ticketCount;
+      const payoutMultiplier = 85;
+      const maxLiability = cost * payoutMultiplier;
+
+      const agentBal = toNum(ch.agent_balance);
+      const casinoBal = toNum(ch.casino_balance);
+      if (agentBal < cost) return err(res, 'Insufficient balance for tickets', 400, 'INSUFFICIENT_BALANCE');
+      if (casinoBal < maxLiability) return err(res, `Casino can't cover max payout. Max tickets with current bankroll: ${Math.floor(casinoBal / (price * payoutMultiplier))}. Max possible payout: ${maxLiability} ETH, casino balance: ${casinoBal} ETH`, 400, 'MAX_BET_EXCEEDED');
+
+      const draw = await ensureDraw();
+      const nonce = Number(ch.nonce || 0) + 1;
+      const updated = await updateChannel(ch.id, {
+        agent_balance: agentBal - cost,
+        casino_balance: casinoBal + cost,
+        nonce,
+        games_played: Number(ch.games_played || 0) + 1,
+      });
+
+      await rest('casino_lotto_tickets', {
+        method: 'POST',
+        body: [{ draw_id: draw.draw_id, agent, picked_number: pickedNumber, ticket_count: ticketCount, cost, created_at: nowIso() }],
+      });
+
+      await insertRound({
+        agent,
+        game: 'lotto',
+        bet: cost,
+        payout: 0,
+        won: false,
+        picked_number: pickedNumber,
+        draw_id: draw.draw_id,
+        ticket_count: ticketCount,
+        nonce,
+        timestamp: nowIso(),
+      });
+      await upsertGameStats('lotto', cost, 0, 1);
+      await insertEvent('game', 'lotto_buy', shortAddr(agent), { drawId: draw.draw_id, pickedNumber, ticketCount, cost: String(cost) });
+
+      const response = {
+        drawId: Number(draw.draw_id),
+        pickedNumber,
+        ticketCount,
+        totalCost: String(cost),
+        agentBalance: String(updated.agent_balance),
+        casinoBalance: String(updated.casino_balance),
+        nonce,
+      };
+      await putStoredRequest(idemKey, action, agent, response);
+      return reply(res, response);
+    }
+
+    return err(res, `Unsupported action: ${action}`, 400, 'UNSUPPORTED_ACTION');
+  } catch (e) {
+    return err(res, e.message || 'Internal error', 500, 'INTERNAL');
+  }
 };
