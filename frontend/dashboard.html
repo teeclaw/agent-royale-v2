@@ -239,19 +239,27 @@
         document.getElementById('status-text').textContent = 'live';
         document.getElementById('status-text').style.color = 'var(--accent)';
 
-        // Stats
+        // Stats (onchain money numbers only)
         document.getElementById('stats').innerHTML = `
           <div class="stat-card">
-            <div class="stat-card__label">Active Channels</div>
+            <div class="stat-card__label">House Treasury</div>
+            <div class="stat-card__value">${data.funds?.houseTreasury || '0'} ETH</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card__label">Channel Escrow</div>
+            <div class="stat-card__value">${data.funds?.channelEscrow || '0'} ETH</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card__label">Total Managed</div>
+            <div class="stat-card__value">${data.funds?.totalManaged || '0'} ETH</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card__label">Onchain Active Channels</div>
             <div class="stat-card__value">${data.stats.activeChannels}</div>
           </div>
           <div class="stat-card">
             <div class="stat-card__label">Pending Commits</div>
             <div class="stat-card__value${data.stats.pendingCommits > 5 ? ' warn' : ''}">${data.stats.pendingCommits}</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-card__label">Registered Games</div>
-            <div class="stat-card__value">${data.stats.registeredGames}</div>
           </div>
           <div class="stat-card">
             <div class="stat-card__label">Chain</div>
