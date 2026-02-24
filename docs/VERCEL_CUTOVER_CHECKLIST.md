@@ -5,11 +5,11 @@ Goal: Agent Royale production runs without Caddy/VM dependency.
 ## 1) Domain routing
 - `agentroyale.xyz` -> Vercel project (frontend)
 - `www.agentroyale.xyz` -> Vercel project
-- `api.agentroyale.xyz` -> same Vercel project (API routes)
-- Remove conflicting A/AAAA records that point to VM for these hosts
+- Canonical API host: `www.agentroyale.xyz/api`
+- Remove conflicting A/AAAA records that point to VM for production hosts
 
 ## 2) Certs
-- Verify TLS valid for all 3 hosts in Vercel Domains UI
+- Verify TLS valid for `agentroyale.xyz` and `www.agentroyale.xyz` in Vercel Domains UI
 - Resolve any HTTP-01/ownership challenge failures before cutover
 
 ## 3) API health (must pass)
