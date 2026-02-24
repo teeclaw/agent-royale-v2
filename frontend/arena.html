@@ -285,6 +285,7 @@
     let feedCleared = false;
     const agentCards = new Map(); // agent short addr -> DOM element
     const lastAnimatedNonce = new Map();
+    const lastProcessedNonce = new Map();
 
     // ─── Game Stats ─────────────────────────────────
 
@@ -490,10 +491,17 @@
       const { action, agent, result } = data;
 
       if (action.includes('reveal') || action === 'lotto_draw') {
-        rounds++;
-        const isWin = parseFloat(result?.payout || '0') > 0 || result?.won;
-        if (isWin) wins++; else house++;
-        updateScoreboard();
+        const nonce = Number(result?.nonce ?? -1);
+        const prevProcessed = Number(lastProcessedNonce.get(agent) ?? -1);
+        const isFreshRound = nonce >= 0 ? nonce > prevProcessed : true;
+
+        if (isFreshRound) {
+          rounds++;
+          const isWin = parseFloat(result?.payout || '0') > 0 || result?.won;
+          if (isWin) wins++; else house++;
+          updateScoreboard();
+          if (nonce >= 0) lastProcessedNonce.set(agent, nonce);
+        }
 
         // Flash game stat
         const gameName = action.split('_')[0];
@@ -503,21 +511,21 @@
         // Animate agent card only on fresh nonce to avoid replay jitter
         const card = agentCards.get(agent);
         if (card) {
-          const nonce = Number(result?.nonce ?? -1);
+          const animNonce = Number(result?.nonce ?? -1);
           const prevNonce = Number(lastAnimatedNonce.get(agent) ?? -1);
-          const isFreshRound = nonce > prevNonce;
+          const isFreshAnim = animNonce > prevNonce;
 
           // Build a game-like object from result
           const gameObj = { ...result, game: gameName };
           renderAgentGame(card, gameObj);
 
-          if (isFreshRound) {
+          if (isFreshAnim) {
             card.classList.add('playing');
             setTimeout(() => card.classList.remove('playing'), 2000);
 
             const display = card.querySelector('[data-field="game-display"]');
             gsap.from(display.children, { scale: 0.8, opacity: 0, duration: 0.28, stagger: 0.04, ease: 'back.out(1.3)' });
-            lastAnimatedNonce.set(agent, nonce);
+            lastAnimatedNonce.set(agent, animNonce);
           }
 
           // Update balances if present
@@ -597,12 +605,35 @@
         document.getElementById('live-text').textContent = 'live';
         document.getElementById('live-text').style.color = 'var(--accent)';
 
-        // First sync: prime cursor only, skip animating historical backlog.
+        // First sync: prime cursor, hydrate scoreboard from recent events, skip backlog animations.
         if (!recentPrimed) {
+          const counted = new Set();
+          rounds = 0; wins = 0; house = 0;
+
           for (const ev of (events || [])) {
             const id = `${ev.ts || 0}:${ev.type || ''}:${ev.action || ''}:${ev.agent || ''}`;
             recentCursor.add(id);
+
+            if (ev.type === 'game' && (String(ev.action || '').includes('reveal') || ev.action === 'lotto_draw')) {
+              const nonce = Number(ev?.result?.nonce ?? -1);
+              const key = nonce >= 0 ? `${ev.agent || ''}:${nonce}` : `${ev.agent || ''}:${ev.action || ''}:${ev.ts || ''}`;
+              if (counted.has(key)) continue;
+              counted.add(key);
+
+              const isWin = parseFloat(ev?.result?.payout || '0') > 0 || ev?.result?.won;
+              rounds++;
+              if (isWin) wins++; else house++;
+
+              if (nonce >= 0 && ev.agent) {
+                const prev = Number(lastProcessedNonce.get(ev.agent) ?? -1);
+                if (nonce > prev) lastProcessedNonce.set(ev.agent, nonce);
+                const prevAnim = Number(lastAnimatedNonce.get(ev.agent) ?? -1);
+                if (nonce > prevAnim) lastAnimatedNonce.set(ev.agent, nonce);
+              }
+            }
           }
+
+          updateScoreboard();
           recentPrimed = true;
           return;
         }
