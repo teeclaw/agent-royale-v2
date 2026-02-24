@@ -62,6 +62,13 @@ npm run deploy:testnet
 npm run server
 ```
 
+## Production Mode (current)
+
+- Frontend: Vercel
+- API: Vercel Functions (`/api/*`)
+- Database: Supabase
+- VM/Caddy: development/staging only
+
 ## A2A Interface
 
 All interactions via `POST /a2a/casino`:
