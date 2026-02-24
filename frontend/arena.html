@@ -577,6 +577,37 @@
 
     // ─── SSE ────────────────────────────────────────
 
+    let recentCursor = new Set();
+
+    async function pollRecent() {
+      try {
+        const res = await fetch('/arena/recent');
+        if (!res.ok) throw new Error('recent unavailable');
+        const events = await res.json();
+
+        document.getElementById('live-dot').className = 'dot-live';
+        document.getElementById('live-text').textContent = 'live';
+        document.getElementById('live-text').style.color = 'var(--accent)';
+
+        for (const ev of (events || []).slice().reverse()) {
+          const id = `${ev.ts || 0}:${ev.type || ''}:${ev.action || ''}:${ev.agent || ''}`;
+          if (recentCursor.has(id)) continue;
+          recentCursor.add(id);
+
+          if (ev.type === 'game') handleGameEvent(ev);
+          else if (ev.type === 'channel') handleChannelEvent(ev);
+        }
+
+        if (recentCursor.size > 200) {
+          recentCursor = new Set(Array.from(recentCursor).slice(-100));
+        }
+      } catch {
+        document.getElementById('live-dot').className = 'dot-off';
+        document.getElementById('live-text').textContent = 'offline';
+        document.getElementById('live-text').style.color = 'var(--danger)';
+      }
+    }
+
     function connectSSE() {
       const es = new EventSource('/arena/events');
 
@@ -591,7 +622,7 @@
 
       es.onerror = () => {
         document.getElementById('live-dot').className = 'dot-off';
-        document.getElementById('live-text').textContent = 'reconnecting';
+        document.getElementById('live-text').textContent = 'polling';
         document.getElementById('live-text').style.color = 'var(--danger)';
       };
     }
@@ -601,7 +632,9 @@
     loadGameStats();
     loadAgents();
     connectSSE();
+    pollRecent();
     setInterval(loadAgents, 10000);
+    setInterval(pollRecent, 5000);
   </script>
 </body>
 </html>

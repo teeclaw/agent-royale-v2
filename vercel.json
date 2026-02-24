@@ -1,6 +1,14 @@
 {
   "version": 2,
   "rewrites": [
+    { "source": "/health", "destination": "/api/health" },
+    { "source": "/a2a/casino", "destination": "/api/a2a/casino" },
+    { "source": "/casino/:path*", "destination": "/api/casino/:path*" },
+    { "source": "/dashboard/state", "destination": "/api/dashboard/state" },
+    { "source": "/arena/events", "destination": "/api/arena/events" },
+    { "source": "/arena/recent", "destination": "/api/arena/recent" },
+    { "source": "/arena/agents", "destination": "/api/arena/agents" },
+
     { "source": "/", "destination": "/frontend/index.html" },
     { "source": "/arena", "destination": "/frontend/arena.html" },
     { "source": "/agent", "destination": "/frontend/agent.html" },
