@@ -55,10 +55,10 @@
     .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
     .stat-card {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 20px; display: flex; flex-direction: column; gap: 4px;
+      padding: 20px; display: flex; flex-direction: column; min-height: 120px;
     }
     .stat-card__label { font-size: 0.75rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; }
-    .stat-card__value { font-family: var(--font-d); font-size: 1.75rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+    .stat-card__value { font-family: var(--font-d); font-size: 1.75rem; font-weight: 700; color: var(--accent); white-space: nowrap; margin-top: auto; line-height: 1.05; }
     .stat-card__value.warn { color: var(--warn); }
     .stat-card__value.danger { color: var(--danger); }
     .stat-card__sub { font-size: 0.75rem; color: var(--text3); }
