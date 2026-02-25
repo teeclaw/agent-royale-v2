@@ -24,7 +24,13 @@ function getChain() {
   const cmc = new ethers.Contract(cm, CHANNEL_MANAGER_ABI, provider);
 
   let casino;
+  const env = String(process.env.NODE_ENV || '').toLowerCase();
   const useKms = String(process.env.USE_KMS || '').toLowerCase() === 'true' || !process.env.CASINO_PRIVATE_KEY;
+
+  if (env === 'production' && !useKms) {
+    throw new Error('Production requires KMS signer (set USE_KMS=true and remove CASINO_PRIVATE_KEY fallback)');
+  }
+
   if (useKms) {
     const { KmsSigner } = require('../../../server/kms-signer');
     casino = new KmsSigner(provider);

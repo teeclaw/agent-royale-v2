@@ -1,5 +1,18 @@
 const { rest, hasConfig } = require('./_supabase');
 
+function kmsHealth() {
+  const useKms = String(process.env.USE_KMS || '').toLowerCase() === 'true';
+  const hasServiceAccount = Boolean(
+    process.env.GCP_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_JSON
+  );
+
+  return {
+    required: useKms,
+    configured: useKms ? hasServiceAccount : true,
+    mode: useKms ? 'kms' : 'private-key-fallback',
+  };
+}
+
 module.exports = async (req, res) => {
   if (!hasConfig()) {
     return res.status(500).json({ status: 'error', message: 'Supabase env not configured' });
@@ -13,6 +26,7 @@ module.exports = async (req, res) => {
       status: 'ok',
       runtime: 'vercel',
       storage: 'supabase',
+      kms: kmsHealth(),
       timestamp: Date.now(),
     });
   } catch (err) {
