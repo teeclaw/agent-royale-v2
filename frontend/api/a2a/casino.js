@@ -243,7 +243,7 @@ function coinflipOutcome(seedA, seedB, nonce, choice) {
 }
 
 function validateAddress(a) {
-  return typeof a === 'string' && a.startsWith('0x') && a.length === 42;
+  return typeof a === 'string' && ethers.isAddress(a);
 }
 
 async function ensureDraw() {
