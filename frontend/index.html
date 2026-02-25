@@ -110,6 +110,61 @@
         radial-gradient(ellipse 40% 40% at 80% 80%, rgba(123, 97, 255, 0.04) 0%, transparent 50%);
     }
     .hero__content { position: relative; z-index: 1; max-width: 800px; width: 100%; }
+    .hero__token {
+      position: absolute;
+      top: 12px;
+      right: clamp(20px, 5vw, 64px);
+      z-index: 2;
+      text-align: right;
+      display: grid;
+      gap: 8px;
+      justify-items: end;
+    }
+    .hero__token-symbol {
+      font-family: var(--font-d);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      color: var(--text3);
+      text-transform: uppercase;
+    }
+    .hero__token-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(15, 17, 23, 0.9);
+      backdrop-filter: blur(8px);
+      max-width: min(92vw, 480px);
+    }
+    .hero__token-copy {
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text3);
+      cursor: pointer;
+      transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+      flex-shrink: 0;
+    }
+    .hero__token-copy:hover {
+      color: var(--accent);
+      border-color: rgba(0, 255, 136, 0.35);
+      background: rgba(0, 255, 136, 0.08);
+    }
+    .hero__token-link {
+      font-family: var(--font-m);
+      font-size: clamp(0.72rem, 1.5vw, 0.84rem);
+      color: var(--accent);
+      text-decoration: none;
+      word-break: break-all;
+    }
+    .hero__token-link:hover { text-decoration: underline; }
     .hero__badge {
       display: inline-flex;
       align-items: center;
@@ -544,6 +599,13 @@
       .top-bar__nav { display: none; }
       .top-bar__toggle { display: block; }
       .hero { min-height: auto; padding: 28px 0 40px; }
+      .hero__token {
+        position: static;
+        margin: 0 0 18px;
+        justify-items: start;
+        text-align: left;
+      }
+      .hero__token-row { max-width: 100%; }
       .hero__actions { flex-direction: column; }
       .btn { width: 100%; justify-content: center; }
       .tx-proof__item { grid-template-columns: 1fr; gap: 4px; }
@@ -601,6 +663,15 @@
   <main id="main">
     <section class="hero">
       <div class="hero__bg" aria-hidden="true"></div>
+      <div class="hero__token js-reveal" aria-label="$AROYALE token">
+        <span class="hero__token-symbol">$AROYALE</span>
+        <div class="hero__token-row">
+          <button class="hero__token-copy" onclick="copyTokenAddress()" aria-label="Copy token address">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+          <a id="token-address" class="hero__token-link" href="https://matcha.xyz/tokens/base/0x9dbace1fcc965fe2c0740e1cbe1157b404e29ba3" target="_blank" rel="noopener">0x9DbAce1fcc965fe2c0740e1cbe1157b404e29BA3</a>
+        </div>
+      </div>
       <div class="container hero__content">
         <div class="hero__badge js-reveal">
           <span class="dot" aria-hidden="true"></span>
@@ -615,10 +686,6 @@
           <strong style="color: var(--accent)">Stealth addresses by default.</strong><br>
           Zero identity leakage.<br>
           Built for autonomous agents.
-        </p>
-        <p class="hero__sub js-reveal" style="margin-top: 10px; font-size: 0.95rem; color: var(--text2);">
-          <strong>$AROYALE</strong> token: 
-          <a href="https://www.geckoterminal.com/base/pools/0x1a6b40ab52ce1f77fd7b3b477adc41db36348416c86a679608799c449ecc1c32" target="_blank" rel="noopener" style="color: var(--accent); text-decoration: none;">0x9DbAce1fcc965fe2c0740e1cbe1157b404e29BA3</a>
         </p>
         <div class="hero__curl js-reveal">
           <span class="hero__curl-label">Agents read this.</span>
@@ -934,6 +1001,21 @@
         const btn = document.querySelector('.hero__curl-copy');
         btn.style.color = 'var(--accent)';
         setTimeout(() => btn.style.color = '', 1500);
+      });
+    }
+
+    function copyTokenAddress() {
+      const token = document.getElementById('token-address')?.textContent?.trim() || '';
+      if (!token) return;
+      navigator.clipboard.writeText(token).then(() => {
+        const btn = document.querySelector('.hero__token-copy');
+        if (!btn) return;
+        btn.style.color = 'var(--accent)';
+        btn.style.borderColor = 'rgba(0, 255, 136, 0.35)';
+        setTimeout(() => {
+          btn.style.color = '';
+          btn.style.borderColor = '';
+        }, 1200);
       });
     }
 
