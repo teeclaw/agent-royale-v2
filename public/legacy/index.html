@@ -821,7 +821,9 @@
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.13/dist/ScrollTrigger.min.js"></script>
   <script>
     function copyCmd() {
-      const text = document.getElementById('curl-cmd').textContent;
+      const label = document.querySelector('.hero__curl-label')?.textContent?.trim() || '';
+      const cmd = document.getElementById('curl-cmd')?.textContent?.trim() || '';
+      const text = `${label} ${cmd}`.trim();
       navigator.clipboard.writeText(text).then(() => {
         const btn = document.querySelector('.hero__curl-copy');
         btn.style.color = 'var(--accent)';
