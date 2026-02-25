@@ -11,6 +11,13 @@ const CHANNEL_MANAGER_ABI = [
   'function fundCasinoSide(address agent) payable',
 ];
 
+const ENTROPY_COINFLIP_ABI = [
+  'function quoteFee() view returns (uint256)',
+  'function requestCoinflip(bytes32 roundId,address agent,uint8 choice,uint256 betAmount,bytes32 userRandom) payable returns (uint64)',
+  'function markSettled(bytes32 roundId)',
+  'function getRound(bytes32 roundId) view returns (address agent,uint8 choice,uint256 betAmount,uint64 sequenceNumber,bytes32 userRandom,bytes32 entropyRandom,uint256 requestedAt,uint256 fulfilledAt,uint8 state)',
+];
+
 let _chain = null;
 function getChain() {
   if (_chain) return _chain;
@@ -40,6 +47,16 @@ function getChain() {
 
   _chain = { provider, casino, cmc, cm };
   return _chain;
+}
+
+function getEntropyChain() {
+  const { provider, casino } = getChain();
+  const entropyCoinflip = process.env.ENTROPY_COINFLIP;
+  const enabled = String(process.env.RNG_PROVIDER || '').toLowerCase() === 'pyth_entropy';
+  if (!enabled) throw new Error('Pyth Entropy mode disabled (set RNG_PROVIDER=pyth_entropy)');
+  if (!entropyCoinflip) throw new Error('Entropy contract not configured (set ENTROPY_COINFLIP)');
+  const ec = new ethers.Contract(entropyCoinflip, ENTROPY_COINFLIP_ABI, provider);
+  return { provider, casino, ec, entropyCoinflip };
 }
 
 async function recordSettlementTx(agent, action, txHash, chainId, status = 'submitted', blockNumber = null, error = null) {
@@ -194,6 +211,27 @@ async function insertRound(payload) {
   await rest('casino_rounds', { method: 'POST', body: [payload] });
 }
 
+async function insertEntropyRound(payload) {
+  await rest('casino_entropy_rounds', { method: 'POST', body: [payload] }).catch(() => {});
+}
+
+async function getEntropyRoundByRoundId(roundId) {
+  const rows = await rest(`casino_entropy_rounds?select=*&round_id=eq.${encodeURIComponent(roundId)}&limit=1`).catch(() => []);
+  return rows?.[0] || null;
+}
+
+async function getLatestEntropyRoundByAgent(agent) {
+  const rows = await rest(`casino_entropy_rounds?select=*&agent=eq.${encodeURIComponent(agent)}&order=created_at.desc&limit=1`).catch(() => []);
+  return rows?.[0] || null;
+}
+
+async function updateEntropyRound(roundId, patch) {
+  await rest(`casino_entropy_rounds?round_id=eq.${encodeURIComponent(roundId)}`, {
+    method: 'PATCH',
+    body: { ...patch, updated_at: nowIso() },
+  }).catch(() => {});
+}
+
 async function getStoredRequest(requestKey) {
   const rows = await rest(`casino_requests?select=id,response,status,created_at&request_key=eq.${encodeURIComponent(requestKey)}&limit=1`).catch(() => []);
   return rows?.[0] || null;
@@ -276,7 +314,7 @@ module.exports = async (req, res) => {
       name: 'Agent Royale',
       mode: 'vercel-supabase-phase2',
       privacy: 'Stealth addresses + state updates in Supabase',
-      actions: ['open_channel','close_channel','channel_status','slots_commit','slots_reveal','coinflip_commit','coinflip_reveal','lotto_buy','lotto_status','info','stats'],
+      actions: ['open_channel','close_channel','channel_status','slots_commit','slots_reveal','coinflip_commit','coinflip_reveal','coinflip_entropy_commit','coinflip_entropy_status','coinflip_entropy_finalize','lotto_buy','lotto_status','info','stats'],
     });
   }
 
@@ -290,7 +328,7 @@ module.exports = async (req, res) => {
   if (!validateAddress(agent)) return err(res, 'Invalid or missing stealthAddress');
 
   const idemKey = req.headers['x-idempotency-key'] || sha256(JSON.stringify(content));
-  if (['open_channel','close_channel','slots_reveal','coinflip_reveal','lotto_buy'].includes(action)) {
+  if (['open_channel','close_channel','slots_reveal','coinflip_reveal','coinflip_entropy_commit','coinflip_entropy_finalize','lotto_buy'].includes(action)) {
     const prev = await getStoredRequest(idemKey);
     if (prev?.response && prev.status === 'done') return reply(res, prev.response);
   }
@@ -370,6 +408,177 @@ module.exports = async (req, res) => {
         nonce: Number(ch.nonce || 0),
         gamesPlayed: Number(ch.games_played || 0),
       });
+    }
+
+    if (action === 'coinflip_entropy_commit') {
+      const ch = await getOpenChannel(agent);
+      if (!ch) return err(res, 'Channel not found', 404, 'CHANNEL_NOT_FOUND');
+
+      const choiceRaw = String(content.choice || '').toLowerCase();
+      if (!['heads', 'tails'].includes(choiceRaw)) return err(res, 'choice must be heads or tails', 400, 'INVALID_CHOICE');
+
+      const betAmount = toNum(content.betAmount, toNum(content.params?.betAmount, 0));
+      const minBet = 0.0001;
+      if (betAmount < minBet) return err(res, `Min bet: ${minBet} ETH`, 400, 'INVALID_BET');
+
+      const casinoBal = toNum(ch.casino_balance);
+      const maxMultiplier = 2;
+      const safetyMargin = 2;
+      const maxBet = casinoBal / (maxMultiplier * safetyMargin);
+      if (betAmount > maxBet) return err(res, `Max bet: ${maxBet} ETH (bankroll limit)`, 400, 'MAX_BET_EXCEEDED');
+
+      const { provider, casino, ec } = getEntropyChain();
+      const net = await provider.getNetwork();
+      const chainId = Number(net.chainId);
+
+      const roundId = `0x${randHex(32)}`;
+      const userRandom = `0x${randHex(32)}`;
+      const choiceNum = choiceRaw === 'heads' ? 0 : 1;
+      const betWei = ethers.parseEther(String(betAmount));
+
+      const fee = await ec.quoteFee();
+      const tx = await ec.connect(casino).requestCoinflip(roundId, agent, choiceNum, betWei, userRandom, { value: fee });
+      const rcpt = await tx.wait();
+
+      let sequenceNumber = null;
+      try {
+        const parsed = (rcpt.logs || [])
+          .map((l) => { try { return ec.interface.parseLog(l); } catch { return null; } })
+          .filter(Boolean)
+          .find((e) => e.name === 'EntropyRequested');
+        sequenceNumber = parsed ? Number(parsed.args.sequenceNumber) : null;
+      } catch (_) {}
+
+      await insertEntropyRound({
+        round_id: roundId,
+        agent,
+        game: 'coinflip',
+        bet_amount: betAmount,
+        choice: choiceRaw,
+        request_id: sequenceNumber ? String(sequenceNumber) : null,
+        request_tx_hash: tx.hash,
+        state: 'entropy_requested',
+        created_at: nowIso(),
+      });
+
+      const response = {
+        roundId,
+        requestId: sequenceNumber,
+        requestTxHash: tx.hash,
+        chainId,
+        status: 'entropy_requested',
+        choice: choiceRaw,
+        betAmount: String(betAmount),
+      };
+      await putStoredRequest(idemKey, action, agent, response);
+      await insertEvent('game', action, shortAddr(agent), response);
+      return reply(res, response);
+    }
+
+    if (action === 'coinflip_entropy_status') {
+      const roundId = content.roundId || content.requestId;
+      const row = roundId
+        ? (await getEntropyRoundByRoundId(roundId))
+        : (await getLatestEntropyRoundByAgent(agent));
+      if (!row) return err(res, 'Entropy round not found', 404, 'ROUND_NOT_FOUND');
+
+      const { ec } = getEntropyChain();
+      const onchain = await ec.getRound(row.round_id);
+      const state = Number(onchain.state);
+      const fulfilled = state >= 2;
+
+      return reply(res, {
+        roundId: row.round_id,
+        requestId: row.request_id,
+        requestTxHash: row.request_tx_hash,
+        state: fulfilled ? 'entropy_fulfilled' : 'entropy_requested',
+        entropyRandom: fulfilled ? onchain.entropyRandom : null,
+        choice: row.choice,
+        betAmount: String(row.bet_amount),
+      });
+    }
+
+    if (action === 'coinflip_entropy_finalize') {
+      const roundId = content.roundId || content.requestId;
+      const row = roundId
+        ? (await getEntropyRoundByRoundId(roundId))
+        : (await getLatestEntropyRoundByAgent(agent));
+      if (!row) return err(res, 'Entropy round not found', 404, 'ROUND_NOT_FOUND');
+
+      const ch = await getOpenChannel(agent);
+      if (!ch) return err(res, 'Channel not found', 404, 'CHANNEL_NOT_FOUND');
+
+      const { ec } = getEntropyChain();
+      const onchain = await ec.getRound(row.round_id);
+      const state = Number(onchain.state);
+      if (state < 2) return err(res, 'Entropy not ready', 409, 'ENTROPY_NOT_READY');
+
+      const randomHex = onchain.entropyRandom;
+      const resultBit = Number(BigInt(randomHex) % 2n);
+      const result = resultBit === 0 ? 'heads' : 'tails';
+      const won = row.choice === result;
+      const bet = toNum(row.bet_amount, 0);
+      const payout = won ? bet * 1.9 : 0;
+
+      const nonce = Number(ch.nonce || 0) + 1;
+      const nextAgent = toNum(ch.agent_balance) - bet + payout;
+      const nextCasino = toNum(ch.casino_balance) + bet - payout;
+      if (nextAgent < 0 || nextCasino < 0) return err(res, 'Insufficient channel balance', 400, 'INSUFFICIENT_BALANCE');
+
+      const updated = await updateChannel(ch.id, {
+        agent_balance: nextAgent,
+        casino_balance: nextCasino,
+        nonce,
+        games_played: Number(ch.games_played || 0) + 1,
+      });
+
+      await insertRound({
+        agent,
+        game: 'coinflip',
+        bet,
+        payout,
+        won,
+        multiplier: won ? 1.9 : 0,
+        reels: null,
+        choice: row.choice,
+        result,
+        nonce,
+        timestamp: nowIso(),
+      });
+      await upsertGameStats('coinflip', bet, payout, 1);
+
+      await updateEntropyRound(row.round_id, {
+        state: 'settled',
+        won,
+        payout,
+        entropy_value: randomHex,
+      });
+      await ec.markSettled(row.round_id).catch(() => {});
+
+      const response = {
+        roundId: row.round_id,
+        requestId: row.request_id,
+        requestTxHash: row.request_tx_hash,
+        provider: 'pyth_entropy',
+        choice: row.choice,
+        result,
+        won,
+        payout: String(payout),
+        agentBalance: String(updated.agent_balance),
+        casinoBalance: String(updated.casino_balance),
+        nonce,
+        proof: {
+          requestId: row.request_id,
+          requestTxHash: row.request_tx_hash,
+          randomValue: randomHex,
+          formula: 'uint256(randomValue) % 2',
+          derivedResult: result,
+        },
+      };
+
+      await putStoredRequest(idemKey, action, agent, response);
+      await insertEvent('game', action, shortAddr(agent), response);
+      return reply(res, response);
     }
 
     if (action === 'close_channel') {
