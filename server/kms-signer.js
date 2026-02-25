@@ -112,10 +112,11 @@ async function getGcpToken() {
     }
   } catch (_) {}
 
+  const raw = process.env.GCP_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '';
   const sa = parseServiceAccountEnv();
   if (sa) return getTokenFromServiceAccount(sa);
 
-  throw new Error('No GCP auth available for KMS (metadata token unavailable and no service-account JSON env provided)');
+  throw new Error(`No GCP auth available for KMS (metadata token unavailable and service-account env invalid; envLen=${raw.length})`);
 }
 
 /** Parse DER-encoded ECDSA signature to { r, s } BigInt */
