@@ -9,6 +9,7 @@
  */
 
 const { ethers } = require('ethers');
+const crypto = require('crypto');
 
 const KMS_KEY_VERSION =
   'projects/gen-lang-client-0700091131/locations/global/keyRings/mr-tee-keyring/cryptoKeys/agent-wallet/cryptoKeyVersions/1';
@@ -17,13 +18,88 @@ const METADATA_TOKEN_URL =
   'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token';
 const SECP256K1_ORDER = BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141');
 
-/** Fetch GCP access token from metadata server */
-async function getGcpToken() {
-  const res = await fetch(METADATA_TOKEN_URL, {
-    headers: { 'Metadata-Flavor': 'Google' },
+function base64Url(input) {
+  return Buffer.from(input)
+    .toString('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+}
+
+function parseServiceAccountEnv() {
+  const raw = process.env.GCP_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '';
+  if (!raw) return null;
+
+  try {
+    // supports plain JSON or base64-encoded JSON
+    const json = raw.trim().startsWith('{')
+      ? raw
+      : Buffer.from(raw.trim(), 'base64').toString('utf8');
+    const parsed = JSON.parse(json);
+    if (!parsed.client_email || !parsed.private_key) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function getTokenFromServiceAccount(sa) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const claim = {
+    iss: sa.client_email,
+    scope: 'https://www.googleapis.com/auth/cloud-platform',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+  };
+
+  const encodedHeader = base64Url(JSON.stringify(header));
+  const encodedClaim = base64Url(JSON.stringify(claim));
+  const toSign = `${encodedHeader}.${encodedClaim}`;
+
+  const signer = crypto.createSign('RSA-SHA256');
+  signer.update(toSign);
+  signer.end();
+  const signature = signer.sign(sa.private_key);
+  const jwt = `${toSign}.${base64Url(signature)}`;
+
+  const body = new URLSearchParams({
+    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+    assertion: jwt,
   });
-  const { access_token } = await res.json();
-  return access_token;
+
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Service account OAuth failed: ${res.status} ${text}`);
+  }
+
+  const json = await res.json();
+  return json.access_token;
+}
+
+/** Fetch GCP access token (metadata first, service-account env fallback) */
+async function getGcpToken() {
+  try {
+    const res = await fetch(METADATA_TOKEN_URL, {
+      headers: { 'Metadata-Flavor': 'Google' },
+    });
+    if (res.ok) {
+      const { access_token } = await res.json();
+      if (access_token) return access_token;
+    }
+  } catch (_) {}
+
+  const sa = parseServiceAccountEnv();
+  if (sa) return getTokenFromServiceAccount(sa);
+
+  throw new Error('No GCP auth available for KMS (metadata token unavailable and no service-account JSON env provided)');
 }
 
 /** Parse DER-encoded ECDSA signature to { r, s } BigInt */
