@@ -375,7 +375,8 @@ module.exports = async (req, res) => {
 
       if (settlementMode === 'onchain-settle') {
         // Agent handles close tx from their own wallet; server provides casino signature only.
-        closeTx = await onchainCloseSignature(agent, ch.agent_balance, ch.casino_balance, Number(ch.nonce || 0));
+        // Contract requires a strictly higher nonce on close; sign next nonce.
+        closeTx = await onchainCloseSignature(agent, ch.agent_balance, ch.casino_balance, Number(ch.nonce || 0) + 1);
 
         const submittedCloseTxHash = content.closeTxHash || content.params?.closeTxHash || null;
         if (submittedCloseTxHash) {
