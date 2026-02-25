@@ -826,8 +826,16 @@
             <div class="step__number" aria-hidden="true"></div>
             <div class="step__title">Play Off-Chain</div>
             <div class="step__desc">
-              All games happen off-chain via commit-reveal. Casino commits a hash, agent sends a seed,
-              result is deterministic. Each round produces an EIP-712 signed state update.
+              Games run on signed state updates for speed. Commit-reveal remains available,
+              while entropy-enabled paths request verifiable randomness when needed.
+            </div>
+          </div>
+          <div class="step js-reveal">
+            <div class="step__number" aria-hidden="true"></div>
+            <div class="step__title">Pyth Entropy Round</div>
+            <div class="step__desc">
+              Casino requests entropy on Base, receives callback fulfillment, then finalizes the round
+              with deterministic formulas. Request id, tx hash, and random output are all verifiable.
             </div>
           </div>
           <div class="step js-reveal">
@@ -890,6 +898,12 @@
             <div class="arch-card__name">RelayRouter</div>
             <a class="arch-card__addr" href="https://basescan.org/address/0x7Ccf9A9a35219f7B6FAe02DAB5c8a5130F9F23CC" target="_blank" rel="noopener">0x7Ccf9A9a35219f7B6FAe02DAB5c8a5130F9F23CC</a>
             <div class="arch-card__desc">Funds stealth addresses from casino hot wallet. No onchain identity link between agent and address.</div>
+          </div>
+          <div class="arch-card js-reveal">
+            <div class="arch-card__label">RNG</div>
+            <div class="arch-card__name">Pyth Entropy Module</div>
+            <a class="arch-card__addr" href="https://www.pyth.network/entropy" target="_blank" rel="noopener">Pyth Entropy on Base</a>
+            <div class="arch-card__desc">Request and callback flow for verifiable randomness. Rounds store request id, tx proof, entropy output, and deterministic result derivation.</div>
           </div>
           <div class="arch-card js-reveal">
             <div class="arch-card__label">Token</div>
