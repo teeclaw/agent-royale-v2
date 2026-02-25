@@ -16,13 +16,22 @@ function getChain() {
   if (_chain) return _chain;
   const rpc = process.env.ONCHAIN_RPC_URL || process.env.BASE_RPC_URL;
   const cm = process.env.CHANNEL_MANAGER;
-  const casinoPk = process.env.CASINO_PRIVATE_KEY;
-  if (!rpc || !cm || !casinoPk) {
-    throw new Error('Onchain settlement env missing (ONCHAIN_RPC_URL/BASE_RPC_URL, CHANNEL_MANAGER, CASINO_PRIVATE_KEY)');
+  if (!rpc || !cm) {
+    throw new Error('Onchain settlement env missing (ONCHAIN_RPC_URL/BASE_RPC_URL, CHANNEL_MANAGER)');
   }
+
   const provider = new ethers.JsonRpcProvider(rpc);
-  const casino = new ethers.Wallet(casinoPk, provider);
   const cmc = new ethers.Contract(cm, CHANNEL_MANAGER_ABI, provider);
+
+  let casino;
+  const useKms = String(process.env.USE_KMS || '').toLowerCase() === 'true' || !process.env.CASINO_PRIVATE_KEY;
+  if (useKms) {
+    const { KmsSigner } = require('../../../server/kms-signer');
+    casino = new KmsSigner(provider);
+  } else {
+    casino = new ethers.Wallet(process.env.CASINO_PRIVATE_KEY, provider);
+  }
+
   _chain = { provider, casino, cmc, cm };
   return _chain;
 }
