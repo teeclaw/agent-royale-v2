@@ -254,15 +254,15 @@
         document.getElementById('stats').innerHTML = `
           <div class="stat-card">
             <div class="stat-card__label">House Treasury</div>
-            <div class="stat-card__value">${formatEth3(data.funds?.houseTreasury)} ETH</div>
+            <div class="stat-card__value">${formatEth3(data.funds?.houseTreasury)} Ξ</div>
           </div>
           <div class="stat-card">
             <div class="stat-card__label">Channel Escrow</div>
-            <div class="stat-card__value">${formatEth3(data.funds?.channelEscrow)} ETH</div>
+            <div class="stat-card__value">${formatEth3(data.funds?.channelEscrow)} Ξ</div>
           </div>
           <div class="stat-card">
             <div class="stat-card__label">Total Managed</div>
-            <div class="stat-card__value">${formatEth3(data.funds?.totalManaged)} ETH</div>
+            <div class="stat-card__value">${formatEth3(data.funds?.totalManaged)} Ξ</div>
           </div>
           <div class="stat-card">
             <div class="stat-card__label">Onchain Active Channels</div>
@@ -310,8 +310,8 @@
           document.getElementById('channels-body').innerHTML = data.channels.map(ch => `
             <tr>
               <td class="mono">${ch.agent}</td>
-              <td class="mono">${ch.agentBalance} ETH</td>
-              <td class="mono">${ch.casinoBalance} ETH</td>
+              <td class="mono">${ch.agentBalance} Ξ</td>
+              <td class="mono">${ch.casinoBalance} Ξ</td>
               <td>${ch.nonce}</td>
               <td>${ch.gamesPlayed}</td>
               <td>${timeAgo(ch.openedAt)}</td>

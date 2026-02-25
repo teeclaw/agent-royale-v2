@@ -321,7 +321,7 @@ module.exports = async (req, res) => {
 
   const content = req.body?.message?.content || {};
   const action = content.action;
-  const agent = content.stealthAddress;
+  let agent = content.stealthAddress;
 
   if (!action) return err(res, 'Missing action');
 
@@ -346,6 +346,7 @@ module.exports = async (req, res) => {
   }
 
   if (!validateAddress(agent)) return err(res, 'Invalid or missing stealthAddress');
+  agent = ethers.getAddress(agent);
 
   const idemKey = req.headers['x-idempotency-key'] || sha256(JSON.stringify(content));
   if (['open_channel','close_channel','slots_reveal','coinflip_reveal','slots_entropy_commit','slots_entropy_finalize','coinflip_entropy_commit','coinflip_entropy_finalize','lotto_buy','lotto_entropy_buy','lotto_entropy_finalize'].includes(action)) {
@@ -361,7 +362,7 @@ module.exports = async (req, res) => {
       const settlementMode = content.settlementMode || content.mode || DEFAULT_SETTLEMENT_MODE;
       const agentDeposit = toNum(content.agentDeposit, toNum(content.params?.agentDeposit, 0));
       const casinoDeposit = toNum(content.casinoDeposit, toNum(content.params?.casinoDeposit, agentDeposit));
-      if (agentDeposit < 0.001 || casinoDeposit <= 0) return err(res, 'Min deposit: 0.001 ETH', 400, 'INVALID_DEPOSIT');
+      if (agentDeposit < 0.001 || casinoDeposit <= 0) return err(res, 'Min deposit: 0.001 Ξ', 400, 'INVALID_DEPOSIT');
 
       let onchain = { chainId: 8453, openTxHash: null, fundTxHash: null, openBlock: null, fundBlock: null, onchainAgent: null };
       if (settlementMode === 'onchain-settle') {
@@ -487,13 +488,13 @@ module.exports = async (req, res) => {
 
       const betAmount = toNum(content.betAmount, toNum(content.params?.betAmount, 0));
       const minBet = 0.0001;
-      if (betAmount < minBet) return err(res, `Min bet: ${minBet} ETH`, 400, 'INVALID_BET');
+      if (betAmount < minBet) return err(res, `Min bet: ${minBet} Ξ`, 400, 'INVALID_BET');
 
       const casinoBal = toNum(ch.casino_balance);
       const maxMultiplier = 2;
       const safetyMargin = 2;
       const maxBet = casinoBal / (maxMultiplier * safetyMargin);
-      if (betAmount > maxBet) return err(res, `Max bet: ${maxBet} ETH (bankroll limit)`, 400, 'MAX_BET_EXCEEDED');
+      if (betAmount > maxBet) return err(res, `Max bet: ${maxBet} Ξ (bankroll limit)`, 400, 'MAX_BET_EXCEEDED');
 
       const { provider, casino, ec } = getEntropyChain();
       const net = await provider.getNetwork();
@@ -762,13 +763,13 @@ module.exports = async (req, res) => {
 
       const betAmount = toNum(content.betAmount, toNum(content.params?.betAmount, 0));
       const minBet = 0.0001;
-      if (betAmount < minBet) return err(res, `Min bet: ${minBet} ETH`, 400, 'INVALID_BET');
+      if (betAmount < minBet) return err(res, `Min bet: ${minBet} Ξ`, 400, 'INVALID_BET');
 
       const casinoBal = toNum(ch.casino_balance);
       const maxMultiplier = game === 'slots' ? 290 : 2;
       const safetyMargin = 2;
       const maxBet = casinoBal / (maxMultiplier * safetyMargin);
-      if (betAmount > maxBet) return err(res, `Max bet: ${maxBet} ETH (bankroll limit)`, 400, 'MAX_BET_EXCEEDED');
+      if (betAmount > maxBet) return err(res, `Max bet: ${maxBet} Ξ (bankroll limit)`, 400, 'MAX_BET_EXCEEDED');
 
       if (game === 'coinflip' && !['heads', 'tails'].includes(content.choice)) {
         return err(res, 'choice must be heads or tails', 400, 'INVALID_CHOICE');
@@ -982,7 +983,7 @@ module.exports = async (req, res) => {
       const agentBal = toNum(ch.agent_balance);
       const casinoBal = toNum(ch.casino_balance);
       if (agentBal < cost) return err(res, 'Insufficient balance for tickets', 400, 'INSUFFICIENT_BALANCE');
-      if (casinoBal < maxLiability) return err(res, `Casino can't cover max payout. Max tickets with current bankroll: ${Math.floor(casinoBal / (price * payoutMultiplier))}. Max possible payout: ${maxLiability} ETH, casino balance: ${casinoBal} ETH`, 400, 'MAX_BET_EXCEEDED');
+      if (casinoBal < maxLiability) return err(res, `Casino can't cover max payout. Max tickets with current bankroll: ${Math.floor(casinoBal / (price * payoutMultiplier))}. Max possible payout: ${maxLiability} Ξ, casino balance: ${casinoBal} Ξ`, 400, 'MAX_BET_EXCEEDED');
 
       const draw = await ensureDraw();
       const nonce = Number(ch.nonce || 0) + 1;

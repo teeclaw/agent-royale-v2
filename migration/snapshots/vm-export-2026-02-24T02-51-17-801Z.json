@@ -1,0 +1,808 @@
+{
+  "meta": {
+    "exportedAt": "2026-02-24T02:51:17.801Z",
+    "source": "http://127.0.0.1:3847",
+    "version": "phase1-vm-export"
+  },
+  "health": {
+    "status": "ok",
+    "uptime": 68351.609303475,
+    "casino": "0x1Af5f519DC738aC0f3B58B19A4bB8A8441937e78",
+    "contract": "0xBe346665F984A9F1d0dDDE818AfEABA1992A998e",
+    "chain": 8453,
+    "signer": "KMS HSM",
+    "activeChannels": 10,
+    "pendingCommits": 0,
+    "registeredGames": 3,
+    "games": {
+      "slots": {
+        "rtp": 0.95,
+        "houseEdge": 0.050000000000000044,
+        "maxMultiplier": 290
+      },
+      "lotto": {
+        "rtp": 0.85,
+        "houseEdge": 0.15000000000000002,
+        "maxMultiplier": 85
+      },
+      "coinflip": {
+        "rtp": 0.95,
+        "houseEdge": 0.050000000000000044,
+        "maxMultiplier": 2
+      }
+    }
+  },
+  "dashboard": {
+    "server": {
+      "uptime": 68352.068756927,
+      "signer": "KMS HSM",
+      "chain": 8453
+    },
+    "contracts": {
+      "channelManager": "0xBe346665F984A9F1d0dDDE818AfEABA1992A998e",
+      "bankrollManager": "0x52717d801F76AbDA82350c673050D5f5c8213451",
+      "insuranceFund": "0xb961b7C7cD68A9BC746483Fb56D52F564FD822c2",
+      "relayRouter": "0x7Ccf9A9a35219f7B6FAe02DAB5c8a5130F9F23CC"
+    },
+    "stats": {
+      "activeChannels": 10,
+      "pendingCommits": 0,
+      "registeredGames": 3
+    },
+    "channels": [
+      {
+        "agent": "0x5fEC...F939",
+        "agentBalance": "0.001",
+        "casinoBalance": "0.001",
+        "nonce": 0,
+        "gamesPlayed": 0,
+        "openedAt": 1771869778341,
+        "invariantOk": true
+      },
+      {
+        "agent": "0xd73f...f6e7",
+        "agentBalance": "0.000999",
+        "casinoBalance": "0.001001",
+        "nonce": 1,
+        "gamesPlayed": 1,
+        "openedAt": 1771870624102,
+        "invariantOk": true
+      },
+      {
+        "agent": "0xec1e...2ea7",
+        "agentBalance": "0.000999",
+        "casinoBalance": "0.001001",
+        "nonce": 1,
+        "gamesPlayed": 1,
+        "openedAt": 1771870706596,
+        "invariantOk": true
+      },
+      {
+        "agent": "0x054a...c30d",
+        "agentBalance": "0.001",
+        "casinoBalance": "0.001",
+        "nonce": 0,
+        "gamesPlayed": 0,
+        "openedAt": 1771870761722,
+        "invariantOk": true
+      },
+      {
+        "agent": "0x49e5...7566",
+        "agentBalance": "0.000999",
+        "casinoBalance": "0.001001",
+        "nonce": 1,
+        "gamesPlayed": 1,
+        "openedAt": 1771870813682,
+        "invariantOk": true
+      },
+      {
+        "agent": "0x47e2...08d6",
+        "agentBalance": "0.000999",
+        "casinoBalance": "0.001001",
+        "nonce": 1,
+        "gamesPlayed": 1,
+        "openedAt": 1771870869884,
+        "invariantOk": true
+      },
+      {
+        "agent": "0x377e...d59d",
+        "agentBalance": "0.000999",
+        "casinoBalance": "0.001001",
+        "nonce": 1,
+        "gamesPlayed": 1,
+        "openedAt": 1771870891579,
+        "invariantOk": true
+      },
+      {
+        "agent": "0x65d1...4b7f",
+        "agentBalance": "0.001",
+        "casinoBalance": "0.001",
+        "nonce": 0,
+        "gamesPlayed": 0,
+        "openedAt": 1771872038378,
+        "invariantOk": true
+      },
+      {
+        "agent": "0x65d2...376f",
+        "agentBalance": "0.001225",
+        "casinoBalance": "0.000775",
+        "nonce": 1,
+        "gamesPlayed": 1,
+        "openedAt": 1771872074683,
+        "invariantOk": true
+      },
+      {
+        "agent": "0x0eD3...09d4",
+        "agentBalance": "0.0008",
+        "casinoBalance": "0.0012",
+        "nonce": 2,
+        "gamesPlayed": 2,
+        "openedAt": 1771881738125,
+        "invariantOk": true
+      }
+    ],
+    "games": {
+      "slots": {
+        "rtp": 0.95,
+        "houseEdge": 0.050000000000000044,
+        "maxMultiplier": 290
+      },
+      "lotto": {
+        "rtp": 0.85,
+        "houseEdge": 0.15000000000000002,
+        "maxMultiplier": 85
+      },
+      "coinflip": {
+        "rtp": 0.95,
+        "houseEdge": 0.050000000000000044,
+        "maxMultiplier": 2
+      }
+    }
+  },
+  "arenaAgents": [
+    {
+      "agent": "0x5fEC...F939",
+      "agentBalance": "0.001",
+      "casinoBalance": "0.001",
+      "nonce": 0,
+      "gamesPlayed": 0,
+      "openedAt": 1771869778341,
+      "lastGame": null,
+      "recentGames": []
+    },
+    {
+      "agent": "0xd73f...f6e7",
+      "agentBalance": "0.000999",
+      "casinoBalance": "0.001001",
+      "nonce": 1,
+      "gamesPlayed": 1,
+      "openedAt": 1771870624102,
+      "lastGame": {
+        "nonce": 1,
+        "game": "slots",
+        "bet": "0.000001",
+        "reels": [
+          3,
+          4,
+          2
+        ],
+        "multiplier": 0,
+        "payout": "0.0",
+        "timestamp": 1771870624276
+      },
+      "recentGames": [
+        {
+          "nonce": 1,
+          "game": "slots",
+          "bet": "0.000001",
+          "reels": [
+            3,
+            4,
+            2
+          ],
+          "multiplier": 0,
+          "payout": "0.0",
+          "timestamp": 1771870624276
+        }
+      ]
+    },
+    {
+      "agent": "0xec1e...2ea7",
+      "agentBalance": "0.000999",
+      "casinoBalance": "0.001001",
+      "nonce": 1,
+      "gamesPlayed": 1,
+      "openedAt": 1771870706596,
+      "lastGame": {
+        "nonce": 1,
+        "game": "coinflip",
+        "bet": "0.000001",
+        "choice": "heads",
+        "result": "tails",
+        "won": false,
+        "payout": "0.0",
+        "timestamp": 1771870706740
+      },
+      "recentGames": [
+        {
+          "nonce": 1,
+          "game": "coinflip",
+          "bet": "0.000001",
+          "choice": "heads",
+          "result": "tails",
+          "won": false,
+          "payout": "0.0",
+          "timestamp": 1771870706740
+        }
+      ]
+    },
+    {
+      "agent": "0x054a...c30d",
+      "agentBalance": "0.001",
+      "casinoBalance": "0.001",
+      "nonce": 0,
+      "gamesPlayed": 0,
+      "openedAt": 1771870761722,
+      "lastGame": null,
+      "recentGames": []
+    },
+    {
+      "agent": "0x49e5...7566",
+      "agentBalance": "0.000999",
+      "casinoBalance": "0.001001",
+      "nonce": 1,
+      "gamesPlayed": 1,
+      "openedAt": 1771870813682,
+      "lastGame": {
+        "nonce": 1,
+        "game": "slots",
+        "bet": "0.000001",
+        "reels": [
+          3,
+          0,
+          0
+        ],
+        "multiplier": 0,
+        "payout": "0.0",
+        "timestamp": 1771870813817
+      },
+      "recentGames": [
+        {
+          "nonce": 1,
+          "game": "slots",
+          "bet": "0.000001",
+          "reels": [
+            3,
+            0,
+            0
+          ],
+          "multiplier": 0,
+          "payout": "0.0",
+          "timestamp": 1771870813817
+        }
+      ]
+    },
+    {
+      "agent": "0x47e2...08d6",
+      "agentBalance": "0.000999",
+      "casinoBalance": "0.001001",
+      "nonce": 1,
+      "gamesPlayed": 1,
+      "openedAt": 1771870869884,
+      "lastGame": {
+        "nonce": 1,
+        "game": "slots",
+        "bet": "0.000001",
+        "reels": [
+          1,
+          1,
+          0
+        ],
+        "multiplier": 0,
+        "payout": "0.0",
+        "timestamp": 1771870870027
+      },
+      "recentGames": [
+        {
+          "nonce": 1,
+          "game": "slots",
+          "bet": "0.000001",
+          "reels": [
+            1,
+            1,
+            0
+          ],
+          "multiplier": 0,
+          "payout": "0.0",
+          "timestamp": 1771870870027
+        }
+      ]
+    },
+    {
+      "agent": "0x377e...d59d",
+      "agentBalance": "0.000999",
+      "casinoBalance": "0.001001",
+      "nonce": 1,
+      "gamesPlayed": 1,
+      "openedAt": 1771870891579,
+      "lastGame": {
+        "nonce": 1,
+        "game": "slots",
+        "bet": "0.000001",
+        "reels": [
+          1,
+          2,
+          1
+        ],
+        "multiplier": 0,
+        "payout": "0.0",
+        "timestamp": 1771870891724
+      },
+      "recentGames": [
+        {
+          "nonce": 1,
+          "game": "slots",
+          "bet": "0.000001",
+          "reels": [
+            1,
+            2,
+            1
+          ],
+          "multiplier": 0,
+          "payout": "0.0",
+          "timestamp": 1771870891724
+        }
+      ]
+    },
+    {
+      "agent": "0x65d1...4b7f",
+      "agentBalance": "0.001",
+      "casinoBalance": "0.001",
+      "nonce": 0,
+      "gamesPlayed": 0,
+      "openedAt": 1771872038378,
+      "lastGame": null,
+      "recentGames": []
+    },
+    {
+      "agent": "0x65d2...376f",
+      "agentBalance": "0.001225",
+      "casinoBalance": "0.000775",
+      "nonce": 1,
+      "gamesPlayed": 1,
+      "openedAt": 1771872074683,
+      "lastGame": {
+        "nonce": 1,
+        "game": "coinflip",
+        "bet": "0.00025",
+        "choice": "heads",
+        "result": "heads",
+        "won": true,
+        "payout": "0.000475",
+        "timestamp": 1771872074822
+      },
+      "recentGames": [
+        {
+          "nonce": 1,
+          "game": "coinflip",
+          "bet": "0.00025",
+          "choice": "heads",
+          "result": "heads",
+          "won": true,
+          "payout": "0.000475",
+          "timestamp": 1771872074822
+        }
+      ]
+    },
+    {
+      "agent": "0x0eD3...09d4",
+      "agentBalance": "0.0008",
+      "casinoBalance": "0.0012",
+      "nonce": 2,
+      "gamesPlayed": 2,
+      "openedAt": 1771881738125,
+      "lastGame": {
+        "nonce": 2,
+        "game": "coinflip",
+        "bet": "0.0001",
+        "choice": "tails",
+        "result": "heads",
+        "won": false,
+        "payout": "0.0",
+        "timestamp": 1771881740313
+      },
+      "recentGames": [
+        {
+          "nonce": 2,
+          "game": "coinflip",
+          "bet": "0.0001",
+          "choice": "tails",
+          "result": "heads",
+          "won": false,
+          "payout": "0.0",
+          "timestamp": 1771881740313
+        },
+        {
+          "nonce": 1,
+          "game": "coinflip",
+          "bet": "0.0001",
+          "choice": "heads",
+          "result": "tails",
+          "won": false,
+          "payout": "0.0",
+          "timestamp": 1771881739176
+        }
+      ]
+    }
+  ],
+  "arenaRecent": [
+    {
+      "event": "game",
+      "data": {
+        "action": "slots_reveal",
+        "agent": "0x49e5...7566",
+        "result": {
+          "reels": [
+            "diamond",
+            "cherry",
+            "cherry"
+          ],
+          "reelIndices": [
+            3,
+            0,
+            0
+          ],
+          "multiplier": 0,
+          "payout": "0.0",
+          "agentBalance": "0.000999",
+          "casinoBalance": "0.001001",
+          "nonce": 1
+        }
+      },
+      "timestamp": 1771870813924,
+      "id": "1771870813924-wit4t4"
+    },
+    {
+      "event": "channel",
+      "data": {
+        "action": "open",
+        "agent": "0x47e2...08d6",
+        "status": "open",
+        "agentBalance": "0.001",
+        "casinoBalance": "0.001"
+      },
+      "timestamp": 1771870869884,
+      "id": "1771870869884-pgle88"
+    },
+    {
+      "event": "game",
+      "data": {
+        "action": "slots_commit",
+        "agent": "0x47e2...08d6",
+        "result": {
+          "commitment": "848822e05734c91b56c51a4ff80afc0c772279f52bf8012e0a5bc38bead1ce63",
+          "betAmount": "0.000001"
+        }
+      },
+      "timestamp": 1771870869954,
+      "id": "1771870869954-7qlvj0"
+    },
+    {
+      "event": "game",
+      "data": {
+        "action": "slots_reveal",
+        "agent": "0x47e2...08d6",
+        "result": {
+          "reels": [
+            "lemon",
+            "lemon",
+            "cherry"
+          ],
+          "reelIndices": [
+            1,
+            1,
+            0
+          ],
+          "multiplier": 0,
+          "payout": "0.0",
+          "agentBalance": "0.000999",
+          "casinoBalance": "0.001001",
+          "nonce": 1
+        }
+      },
+      "timestamp": 1771870870106,
+      "id": "1771870870106-6knfgc"
+    },
+    {
+      "event": "channel",
+      "data": {
+        "action": "open",
+        "agent": "0x377e...d59d",
+        "status": "open",
+        "agentBalance": "0.001",
+        "casinoBalance": "0.001"
+      },
+      "timestamp": 1771870891579,
+      "id": "1771870891579-jg59je"
+    },
+    {
+      "event": "game",
+      "data": {
+        "action": "slots_commit",
+        "agent": "0x377e...d59d",
+        "result": {
+          "commitment": "9fe4af48276abc773ab9934a491125dffd6547875f3c939d0484ffb7eaec7487",
+          "betAmount": "0.000001"
+        }
+      },
+      "timestamp": 1771870891649,
+      "id": "1771870891649-o15zg5"
+    },
+    {
+      "event": "game",
+      "data": {
+        "action": "slots_reveal",
+        "agent": "0x377e...d59d",
+        "result": {
+          "reels": [
+            "lemon",
+            "orange",
+            "lemon"
+          ],
+          "reelIndices": [
+            1,
+            2,
+            1
+          ],
+          "multiplier": 0,
+          "payout": "0.0",
+          "agentBalance": "0.000999",
+          "casinoBalance": "0.001001",
+          "nonce": 1
+        }
+      },
+      "timestamp": 1771870891826,
+      "id": "1771870891826-bwo8p0"
+    },
+    {
+      "event": "channel",
+      "data": {
+        "action": "open",
+        "agent": "0x65d1...4b7f",
+        "status": "open",
+        "agentBalance": "0.001",
+        "casinoBalance": "0.001"
+      },
+      "timestamp": 1771872038378,
+      "id": "1771872038378-pkzd32"
+    },
+    {
+      "event": "channel",
+      "data": {
+        "action": "open",
+        "agent": "0x65d2...376f",
+        "status": "open",
+        "agentBalance": "0.001",
+        "casinoBalance": "0.001"
+      },
+      "timestamp": 1771872074683,
+      "id": "1771872074683-zmchgq"
+    },
+    {
+      "event": "game",
+      "data": {
+        "action": "coinflip_commit",
+        "agent": "0x65d2...376f",
+        "result": {
+          "commitment": "ceee2bd8eaf8f024456124f27783aec7cbf37eed45c6cc0472c3fce06acd88d7",
+          "betAmount": "0.00025",
+          "choice": "heads"
+        }
+      },
+      "timestamp": 1771872074752,
+      "id": "1771872074752-m8eu5i"
+    },
+    {
+      "event": "game",
+      "data": {
+        "action": "coinflip_reveal",
+        "agent": "0x65d2...376f",
+        "result": {
+          "choice": "heads",
+          "result": "heads",
+          "won": true,
+          "payout": "0.000475",
+          "agentBalance": "0.001225",
+          "casinoBalance": "0.000775",
+          "nonce": 1
+        }
+      },
+      "timestamp": 1771872075404,
+      "id": "1771872075404-2qalrm"
+    },
+    {
+      "event": "game",
+      "data": {
+        "action": "lotto_draw",
+        "result": {
+          "drawId": 2,
+          "winningNumber": 46,
+          "casinoSeed": "994df316296ced69f3025652218fe12951e8999c25dd31e311203c6661f9a62e",
+          "commitment": "0e440c0bdfebc0d6614720bac644efcaf7713fb269fd249e96d2aeb3c25ddc0a",
+          "winners": [],
+          "totalPool": "0.0",
+          "totalTickets": 0
+        }
+      },
+      "timestamp": 1771876338045,
+      "id": "1771876338045-byqise"
+    },
+    {
+      "event": "channel",
+      "data": {
+        "action": "open",
+        "agent": "0x0eD3...09d4",
+        "status": "open",
+        "agentBalance": "0.001",
+        "casinoBalance": "0.001"
+      },
+      "timestamp": 1771881694624,
+      "id": "1771881694624-ddt2ho"
+    },
+    {
+      "event": "channel",
+      "data": {
+        "action": "close",
+        "agent": "0x0eD3...09d4",
+        "agentBalance": "0.001",
+        "casinoBalance": "0.001",
+        "nonce": 0,
+        "totalGames": 0
+      },
+      "timestamp": 1771881724758,
+      "id": "1771881724758-yhe5s1"
+    },
+    {
+      "event": "channel",
+      "data": {
+        "action": "open",
+        "agent": "0x0eD3...09d4",
+        "status": "open",
+        "agentBalance": "0.001",
+        "casinoBalance": "0.001"
+      },
+      "timestamp": 1771881738125,
+      "id": "1771881738125-uo5hgi"
+    },
+    {
+      "event": "game",
+      "data": {
+        "action": "coinflip_commit",
+        "agent": "0x0eD3...09d4",
+        "result": {
+          "commitment": "c0b4ff1a438c80db1c612580a17f162570b9f6fc912e5b2cf4ecf1935c427a16",
+          "betAmount": "0.0001",
+          "choice": "heads"
+        }
+      },
+      "timestamp": 1771881738151,
+      "id": "1771881738151-q1qwg5"
+    },
+    {
+      "event": "game",
+      "data": {
+        "action": "coinflip_reveal",
+        "agent": "0x0eD3...09d4",
+        "result": {
+          "choice": "heads",
+          "result": "tails",
+          "won": false,
+          "payout": "0.0",
+          "agentBalance": "0.0009",
+          "casinoBalance": "0.0011",
+          "nonce": 1
+        }
+      },
+      "timestamp": 1771881739262,
+      "id": "1771881739262-bvwy50"
+    },
+    {
+      "event": "game",
+      "data": {
+        "action": "coinflip_commit",
+        "agent": "0x0eD3...09d4",
+        "result": {
+          "commitment": "67a3c0d05c8ecd8061e8c539c5d99ab23fd9a1b7273469641cc042e3dc82072e",
+          "betAmount": "0.0001",
+          "choice": "tails"
+        }
+      },
+      "timestamp": 1771881739288,
+      "id": "1771881739288-kynt7c"
+    },
+    {
+      "event": "game",
+      "data": {
+        "action": "coinflip_reveal",
+        "agent": "0x0eD3...09d4",
+        "result": {
+          "choice": "tails",
+          "result": "heads",
+          "won": false,
+          "payout": "0.0",
+          "agentBalance": "0.0008",
+          "casinoBalance": "0.0012",
+          "nonce": 2
+        }
+      },
+      "timestamp": 1771881740398,
+      "id": "1771881740398-4aia80"
+    },
+    {
+      "event": "game",
+      "data": {
+        "action": "lotto_draw",
+        "result": {
+          "drawId": 3,
+          "winningNumber": 15,
+          "casinoSeed": "5f46441caa7550673370b2320edc464d4b90b40a5b4cad2eac8884113f8b7423",
+          "commitment": "5c2097bc9b963255dff37f7b820960909f2143eff6b95b27e284eab4ced63b89",
+          "winners": [],
+          "totalPool": "0.0",
+          "totalTickets": 0
+        }
+      },
+      "timestamp": 1771897938809,
+      "id": "1771897938809-zm2j4q"
+    }
+  ],
+  "gameStats": {
+    "slots": {
+      "totalRounds": 4,
+      "totalWagered": "0.000004",
+      "totalPaidOut": "0.0",
+      "houseProfit": "0.000004",
+      "agentWins": 0,
+      "houseWins": 4,
+      "biggestWin": "0.0",
+      "biggestWinMultiplier": 0,
+      "actualRtp": "0.00%",
+      "targetRtp": "95.0%",
+      "lastPlayedAt": 1771870891724
+    },
+    "lotto": {
+      "totalRounds": 0,
+      "totalWagered": "0.0",
+      "totalPaidOut": "0.0",
+      "houseProfit": "0.0",
+      "agentWins": 0,
+      "houseWins": 3,
+      "biggestWin": "0.0",
+      "biggestWinMultiplier": 0,
+      "actualRtp": null,
+      "targetRtp": "85.0%",
+      "lastPlayedAt": null,
+      "currentDrawId": 4,
+      "ticketsSoldThisDraw": 0,
+      "currentPool": "0.0",
+      "nextDrawTime": 1771919538809,
+      "totalTicketsSold": 0,
+      "totalDraws": 3,
+      "ticketPrice": "0.001",
+      "payoutMultiplier": "85x"
+    },
+    "coinflip": {
+      "totalRounds": 4,
+      "totalWagered": "0.000451",
+      "totalPaidOut": "0.000475",
+      "houseProfit": "-0.000024",
+      "agentWins": 1,
+      "houseWins": 3,
+      "biggestWin": "0.000475",
+      "biggestWinMultiplier": 1.9,
+      "actualRtp": "105.32%",
+      "targetRtp": "95.0%",
+      "lastPlayedAt": 1771881740313
+    }
+  }
+}
