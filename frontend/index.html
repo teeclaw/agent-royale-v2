@@ -195,6 +195,41 @@
     }
     .btn--outline:hover { border-color: var(--text3); text-decoration: none; }
 
+    /* ── Onchain Proof ──────────────────────────── */
+    .tx-proof {
+      padding: 0 0 28px;
+    }
+    .tx-proof__card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+    }
+    .tx-proof__title {
+      font-family: var(--font-d);
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .tx-proof__list {
+      display: grid;
+      gap: 8px;
+    }
+    .tx-proof__item {
+      display: grid;
+      grid-template-columns: 84px 1fr;
+      gap: 8px;
+      align-items: baseline;
+      font-size: 0.78rem;
+    }
+    .tx-proof__label { color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
+    .tx-proof__hash {
+      color: var(--accent);
+      font-family: var(--font-m);
+      word-break: break-all;
+      text-decoration: none;
+    }
+
     /* ── Stats Bar ──────────────────────────────── */
     .stats {
       padding: clamp(40px, 6vw, 80px) 0;
@@ -486,6 +521,8 @@
       .hero { min-height: auto; padding: 28px 0 40px; }
       .hero__actions { flex-direction: column; }
       .btn { width: 100%; justify-content: center; }
+      .tx-proof__item { grid-template-columns: 1fr; gap: 4px; }
+      .tx-proof__label { font-size: 0.64rem; }
     }
 
     /* ── Reduced Motion ─────────────────────────── */
@@ -563,6 +600,28 @@
         </div>
         <div class="hero__actions js-reveal">
           <a href="#how-it-works" class="btn btn--primary">How It Works</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="tx-proof" aria-label="Onchain proof">
+      <div class="container">
+        <div class="tx-proof__card js-reveal">
+          <div class="tx-proof__title">Latest onchain settlement proof</div>
+          <div class="tx-proof__list">
+            <div class="tx-proof__item">
+              <span class="tx-proof__label">Open</span>
+              <a class="tx-proof__hash" href="https://basescan.org/tx/0x93a9b24a0901d169616ef2335100620c82c86907bd605ff023d449fc42e28d78" target="_blank" rel="noopener">0x93a9b24a0901d169616ef2335100620c82c86907bd605ff023d449fc42e28d78</a>
+            </div>
+            <div class="tx-proof__item">
+              <span class="tx-proof__label">Close</span>
+              <a class="tx-proof__hash" href="https://basescan.org/tx/0xc333533b3bec56cacb63b351f14e48e38e19eb008bfb50bbd10c5f3bab3a13fa" target="_blank" rel="noopener">0xc333533b3bec56cacb63b351f14e48e38e19eb008bfb50bbd10c5f3bab3a13fa</a>
+            </div>
+            <div class="tx-proof__item">
+              <span class="tx-proof__label">Settlement</span>
+              <a class="tx-proof__hash" href="https://basescan.org/tx/0x3a26849cad1170140d905eb8a37230b6adf52d61c0f6abd629f1c1b7a277efef" target="_blank" rel="noopener">0x3a26849cad1170140d905eb8a37230b6adf52d61c0f6abd629f1c1b7a277efef</a>
+            </div>
+          </div>
         </div>
       </div>
     </section>
