@@ -120,7 +120,7 @@
       padding: 24px; margin-bottom: 24px; text-align: center;
     }
     .pnl__label { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); margin-bottom: 4px; }
-    .pnl__value { font-family: var(--font-d); font-size: 2rem; font-weight: 700; }
+    .pnl__value { font-family: var(--font-d); font-size: clamp(1.5rem, 5.8vw, 2rem); font-weight: 700; line-height: 1.2; word-break: break-word; overflow-wrap: anywhere; }
     .pnl__value.positive { color: var(--accent); }
     .pnl__value.negative { color: var(--danger); }
     .pnl__value.zero { color: var(--text3); }
@@ -434,31 +434,31 @@
       }
 
       // PnL
-      const pnl = parseFloat(p.netPnl);
+      const pnl = toNumber(p.netPnl);
       const pnlEl = document.getElementById('p-pnl');
-      pnlEl.textContent = (pnl >= 0 ? '+' : '') + p.netPnl + ' Ξ';
+      pnlEl.textContent = `${formatEth(p.netPnl, { sign: true })} ETH`;
       pnlEl.className = 'pnl__value ' + (pnl > 0 ? 'positive' : pnl < 0 ? 'negative' : 'zero');
-      document.getElementById('p-pnl-pct').textContent = (pnl >= 0 ? '+' : '') + p.netPnlPercent + '% from deposit';
+      document.getElementById('p-pnl-pct').textContent = `${formatPercent(p.netPnlPercent, { sign: true })} from deposit`;
 
       // Stats
       document.getElementById('p-stats').innerHTML = `
-        <div class="stat-card"><div class="stat-card__label">Win Rate</div><div class="stat-card__value accent">${p.winRate}%</div></div>
-        <div class="stat-card"><div class="stat-card__label">Wagered</div><div class="stat-card__value">${p.totalWagered} Ξ</div></div>
-        <div class="stat-card"><div class="stat-card__label">Biggest Win</div><div class="stat-card__value accent">${p.biggestWin} Ξ</div></div>
-        <div class="stat-card"><div class="stat-card__label">Biggest Loss</div><div class="stat-card__value danger">${p.biggestLoss} Ξ</div></div>
+        <div class="stat-card"><div class="stat-card__label">Win Rate</div><div class="stat-card__value accent">${formatPercent(p.winRate)}</div></div>
+        <div class="stat-card"><div class="stat-card__label">Wagered</div><div class="stat-card__value">${formatEth(p.totalWagered)} ETH</div></div>
+        <div class="stat-card"><div class="stat-card__label">Biggest Win</div><div class="stat-card__value accent">${formatEth(p.biggestWin)} ETH</div></div>
+        <div class="stat-card"><div class="stat-card__label">Biggest Loss</div><div class="stat-card__value danger">${formatEth(p.biggestLoss)} ETH</div></div>
       `;
 
       // Balances
       document.getElementById('p-balances').innerHTML = `
         <div class="bal-card">
           <div class="bal-card__label">Agent Balance</div>
-          <div class="bal-card__value" style="color:var(--accent)">${ch.agentBalance} Ξ</div>
-          <div class="bal-card__sub">Deposited: ${ch.agentDeposit} Ξ</div>
+          <div class="bal-card__value" style="color:var(--accent)">${formatEth(ch.agentBalance)} ETH</div>
+          <div class="bal-card__sub">Deposited: ${formatEth(ch.agentDeposit)} ETH</div>
         </div>
         <div class="bal-card">
           <div class="bal-card__label">House Balance</div>
-          <div class="bal-card__value" style="color:var(--text2)">${ch.casinoBalance} Ξ</div>
-          <div class="bal-card__sub">Deposited: ${ch.casinoDeposit} Ξ</div>
+          <div class="bal-card__value" style="color:var(--text2)">${formatEth(ch.casinoBalance)} ETH</div>
+          <div class="bal-card__sub">Deposited: ${formatEth(ch.casinoDeposit)} ETH</div>
         </div>
       `;
 
@@ -478,8 +478,8 @@
           <div class="breakdown__game-name">${game}</div>
           <div class="breakdown__row"><span>Rounds</span><span class="breakdown__row-val">${s.rounds}</span></div>
           <div class="breakdown__row"><span>Wins / Losses</span><span class="breakdown__row-val">${s.wins} / ${s.losses}</span></div>
-          <div class="breakdown__row"><span>Wagered</span><span class="breakdown__row-val">${s.wagered.toFixed(4)} Ξ</span></div>
-          <div class="breakdown__row"><span>Paid Out</span><span class="breakdown__row-val">${s.payout.toFixed(4)} Ξ</span></div>
+          <div class="breakdown__row"><span>Wagered</span><span class="breakdown__row-val">${formatEth(s.wagered)} ETH</span></div>
+          <div class="breakdown__row"><span>Paid Out</span><span class="breakdown__row-val">${formatEth(s.payout)} ETH</span></div>
           <div class="winrate-bar"><div class="winrate-bar__fill" style="width:${wr}%"></div></div>
         `;
         grid.appendChild(card);
@@ -504,9 +504,9 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="history__game">${g.game}</td>
-          <td><span class="history__detail">${g.bet || g.cost || '?'} Ξ</span></td>
+          <td><span class="history__detail">${formatEth(g.bet || g.cost)} ETH</span></td>
           <td>${detail ? `<span class="history__detail">${detail}</span>` : ''}</td>
-          <td><span class="history__result ${isWin ? 'win' : 'lose'}">${isWin ? '+' + g.payout : '-' + (g.bet || g.cost || '?')} Ξ</span></td>
+          <td><span class="history__result ${isWin ? 'win' : 'lose'}">${isWin ? formatEth(g.payout, { sign: true }) : formatEth(g.bet || g.cost, { sign: true, forceNegative: true })} ETH</span></td>
           <td><span class="history__time">${g.timestamp ? timeAgo(g.timestamp) : ''}</span></td>
         `;
         tbody.appendChild(tr);
@@ -539,6 +539,29 @@
     }
 
     // ─── Helpers ─────────────────────────────────────
+
+    function toNumber(value) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function formatEth(value, opts = {}) {
+      const { decimals = 4, sign = false, forceNegative = false } = opts;
+      const n = toNumber(value);
+      const abs = Math.abs(n);
+      const display = abs < 0.001 ? abs.toFixed(6) : abs.toFixed(decimals);
+      const trimmed = display.replace(/\.?0+$/, '');
+      if (!sign) return trimmed;
+      const prefix = forceNegative ? '-' : (n >= 0 ? '+' : '-');
+      return prefix + trimmed;
+    }
+
+    function formatPercent(value, opts = {}) {
+      const { sign = false } = opts;
+      const n = toNumber(value);
+      const raw = Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, '');
+      return (sign ? (n >= 0 ? '+' : '') : '') + raw + '%';
+    }
 
     function timeAgo(ts) {
       const diff = Date.now() - ts;
