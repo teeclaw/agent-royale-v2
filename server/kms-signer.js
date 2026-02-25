@@ -32,10 +32,23 @@ function parseServiceAccountEnv() {
 
   try {
     // supports plain JSON or base64-encoded JSON
-    const json = raw.trim().startsWith('{')
-      ? raw
+    const candidate = raw.trim().startsWith('{')
+      ? raw.trim()
       : Buffer.from(raw.trim(), 'base64').toString('utf8');
-    const parsed = JSON.parse(json);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(candidate);
+    } catch {
+      // Handle env values pasted as escaped JSON (e.g. {\n\"type\": ...})
+      const normalized = candidate
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\"/g, '"');
+      parsed = JSON.parse(normalized);
+    }
+
     if (!parsed.client_email || !parsed.private_key) return null;
     if (typeof parsed.private_key === 'string') {
       parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
