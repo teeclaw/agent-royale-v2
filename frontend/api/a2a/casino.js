@@ -18,6 +18,31 @@ const ENTROPY_COINFLIP_ABI = [
   'function getRound(bytes32 roundId) view returns (address agent,uint8 choice,uint256 betAmount,uint64 sequenceNumber,bytes32 userRandom,bytes32 entropyRandom,uint256 requestedAt,uint256 fulfilledAt,uint8 state)',
 ];
 
+const ENTROPY_SLOTS_ABI = [
+  'function quoteFee() view returns (uint256)',
+  'function requestSlotSpin(bytes32 roundId,address agent,uint256 betAmount,bytes32 userRandom) payable returns (uint64)',
+  'function markSettled(bytes32 roundId)',
+  'function getRound(bytes32 roundId) view returns (address agent,uint256 betAmount,uint64 sequenceNumber,bytes32 userRandom,bytes32 entropyRandom,uint256 requestedAt,uint256 fulfilledAt,uint8 state)',
+];
+
+const ENTROPY_DICE_ABI = [
+  'function quoteFee() view returns (uint256)',
+  'function requestDice(bytes32 roundId,address agent,uint8 choice,uint8 target,uint256 betAmount,bytes32 userRandom) payable returns (uint64)',
+  'function markSettled(bytes32 roundId)',
+  'function getRound(bytes32 roundId) view returns (address agent,uint8 choice,uint8 target,uint256 betAmount,uint64 sequenceNumber,bytes32 userRandom,bytes32 entropyRandom,uint256 requestedAt,uint256 fulfilledAt,uint8 state)',
+];
+
+const ENTROPY_LOTTO_ABI = [
+  'function quoteFee() view returns (uint256)',
+  'function buyTicket(uint256 drawId,address agent,uint8 pickedNumber) returns (uint256)',
+  'function requestDraw(uint256 drawId,bytes32 userRandom) payable returns (uint64)',
+  'function settleDraw(uint256 drawId) returns (uint256,uint256)',
+  'function markExpired(uint256 drawId)',
+  'function currentDrawId() view returns (uint256)',
+  'function getDraw(uint256 drawId) view returns (uint256 drawTime,uint64 sequenceNumber,bytes32 userRandom,bytes32 entropyRandom,uint256 requestedAt,uint256 fulfilledAt,uint8 winningNumber,uint256 totalPool,uint256 ticketCount,uint8 state)',
+  'function getAgentTickets(uint256 drawId,address agent) view returns (uint8[])',
+];
+
 let _chain = null;
 function getChain() {
   if (_chain) return _chain;
@@ -57,6 +82,36 @@ function getEntropyChain() {
   if (!entropyCoinflip) throw new Error('Entropy contract not configured (set ENTROPY_COINFLIP)');
   const ec = new ethers.Contract(entropyCoinflip, ENTROPY_COINFLIP_ABI, provider);
   return { provider, casino, ec, entropyCoinflip };
+}
+
+function getEntropySlots() {
+  const { provider, casino } = getChain();
+  const entropySlots = process.env.ENTROPY_SLOTS;
+  const enabled = String(process.env.RNG_PROVIDER || '').toLowerCase() === 'pyth_entropy';
+  if (!enabled) throw new Error('Pyth Entropy mode disabled (set RNG_PROVIDER=pyth_entropy)');
+  if (!entropySlots) throw new Error('Slots entropy contract not configured (set ENTROPY_SLOTS)');
+  const es = new ethers.Contract(entropySlots, ENTROPY_SLOTS_ABI, provider);
+  return { provider, casino, es, entropySlots };
+}
+
+function getEntropyDice() {
+  const { provider, casino } = getChain();
+  const entropyDice = process.env.ENTROPY_DICE;
+  const enabled = String(process.env.RNG_PROVIDER || '').toLowerCase() === 'pyth_entropy';
+  if (!enabled) throw new Error('Pyth Entropy mode disabled (set RNG_PROVIDER=pyth_entropy)');
+  if (!entropyDice) throw new Error('Dice entropy contract not configured (set ENTROPY_DICE)');
+  const ed = new ethers.Contract(entropyDice, ENTROPY_DICE_ABI, provider);
+  return { provider, casino, ed, entropyDice };
+}
+
+function getEntropyLotto() {
+  const { provider, casino } = getChain();
+  const entropyLotto = process.env.ENTROPY_LOTTO;
+  const enabled = String(process.env.RNG_PROVIDER || '').toLowerCase() === 'pyth_entropy';
+  if (!enabled) throw new Error('Pyth Entropy mode disabled (set RNG_PROVIDER=pyth_entropy)');
+  if (!entropyLotto) throw new Error('Lotto entropy contract not configured (set ENTROPY_LOTTO)');
+  const el = new ethers.Contract(entropyLotto, ENTROPY_LOTTO_ABI, provider);
+  return { provider, casino, el, entropyLotto };
 }
 
 async function recordSettlementTx(agent, action, txHash, chainId, status = 'submitted', blockNumber = null, error = null) {
@@ -350,7 +405,7 @@ module.exports = async (req, res) => {
       entropyCoinflip: process.env.ENTROPY_COINFLIP || null,
       entropyCallbackGasLimit: Number(process.env.ENTROPY_CALLBACK_GAS_LIMIT || 120000),
       privacy: 'Stealth addresses + state updates in Supabase',
-      actions: ['open_channel','close_channel','channel_status','slots_commit','slots_reveal','slots_entropy_commit','slots_entropy_status','slots_entropy_finalize','coinflip_commit','coinflip_reveal','coinflip_entropy_commit','coinflip_entropy_status','coinflip_entropy_finalize','lotto_buy','lotto_status','lotto_entropy_buy','lotto_entropy_status','lotto_entropy_finalize','info','stats'],
+      actions: ['open_channel','close_channel','channel_status','slots_commit','slots_reveal','slots_entropy_commit','slots_entropy_status','slots_entropy_finalize','coinflip_commit','coinflip_reveal','coinflip_entropy_commit','coinflip_entropy_status','coinflip_entropy_finalize','dice_commit','dice_reveal','dice_entropy_commit','dice_entropy_status','dice_entropy_finalize','lotto_buy','lotto_status','lotto_entropy_buy','lotto_entropy_status','lotto_entropy_finalize','info','stats'],
     });
   }
 
@@ -459,7 +514,7 @@ module.exports = async (req, res) => {
       const maxBet = casinoBal / (290 * 2);
       if (betAmount > maxBet) return err(res, `Max bet: ${maxBet} Ξ (bankroll limit)`, 400, 'MAX_BET_EXCEEDED');
 
-      const { provider, casino, ec } = getEntropyChain();
+      const { provider, casino, es } = getEntropySlots();
       const net = await provider.getNetwork();
       const chainId = Number(net.chainId);
 
@@ -467,14 +522,14 @@ module.exports = async (req, res) => {
       const userRandom = `0x${randHex(32)}`;
       const betWei = ethers.parseEther(String(betAmount));
 
-      const fee = await ec.quoteFee();
-      const tx = await ec.connect(casino).requestCoinflip(roundId, agent, 0, betWei, userRandom, { value: fee });
+      const fee = await es.quoteFee();
+      const tx = await es.connect(casino).requestSlotSpin(roundId, agent, betWei, userRandom, { value: fee });
       await tx.wait();
 
       let sequenceNumber = null;
       try {
-        const onchainRound = await ec.getRound(roundId);
-        sequenceNumber = Number(onchainRound.sequenceNumber || onchainRound[3] || 0) || null;
+        const onchainRound = await es.getRound(roundId);
+        sequenceNumber = Number(onchainRound.sequenceNumber || onchainRound[2] || 0) || null;
       } catch (_) {}
 
       await insertEntropyRound({
@@ -663,9 +718,29 @@ module.exports = async (req, res) => {
         : (await getLatestEntropyRoundByAgent(agent));
       if (!row) return err(res, 'Entropy round not found', 404, 'ROUND_NOT_FOUND');
 
-      const { ec } = getEntropyChain();
-      const onchain = await ec.getRound(row.round_id);
-      const state = Number(onchain.state);
+      const game = row.game || (action.startsWith('slots') ? 'slots' : (action.startsWith('lotto') ? 'lotto' : (action.startsWith('dice') ? 'dice' : 'coinflip')));
+      let onchain, contract;
+      
+      if (game === 'slots') {
+        const { es } = getEntropySlots();
+        contract = es;
+        onchain = await es.getRound(row.round_id);
+      } else if (game === 'dice') {
+        const { ed } = getEntropyDice();
+        contract = ed;
+        onchain = await ed.getRound(row.round_id);
+      } else if (game === 'lotto') {
+        const { el } = getEntropyLotto();
+        contract = el;
+        const drawId = Number(row.request_id || 0);
+        onchain = await el.getDraw(drawId);
+      } else {
+        const { ec } = getEntropyChain();
+        contract = ec;
+        onchain = await ec.getRound(row.round_id);
+      }
+
+      const state = Number(onchain.state || onchain[8] || 0);
       const fulfilled = state >= 2;
       const ttlMs = Number(process.env.ENTROPY_ROUND_TTL_MS || 300000);
       const createdMs = row.created_at ? new Date(row.created_at).getTime() : Date.now();
@@ -673,7 +748,11 @@ module.exports = async (req, res) => {
 
       if (expired) {
         await updateEntropyRound(row.round_id, { state: 'expired' });
-        await ec.markExpired(row.round_id).catch(() => {});
+        if (game === 'lotto') {
+          await contract.markExpired(Number(row.request_id || 0)).catch(() => {});
+        } else {
+          await contract.markExpired(row.round_id).catch(() => {});
+        }
       }
 
       return reply(res, {
@@ -698,23 +777,46 @@ module.exports = async (req, res) => {
       const ch = await getOpenChannel(agent);
       if (!ch) return err(res, 'Channel not found', 404, 'CHANNEL_NOT_FOUND');
 
-      const { ec } = getEntropyChain();
-      const onchain = await ec.getRound(row.round_id);
-      const state = Number(onchain.state);
+      const game = row.game || (action.startsWith('slots') ? 'slots' : (action.startsWith('lotto') ? 'lotto' : (action.startsWith('dice') ? 'dice' : 'coinflip')));
+      let onchain, contract;
+      
+      if (game === 'slots') {
+        const { es } = getEntropySlots();
+        contract = es;
+        onchain = await es.getRound(row.round_id);
+      } else if (game === 'dice') {
+        const { ed } = getEntropyDice();
+        contract = ed;
+        onchain = await ed.getRound(row.round_id);
+      } else if (game === 'lotto') {
+        const { el } = getEntropyLotto();
+        contract = el;
+        const drawId = Number(row.request_id || 0);
+        onchain = await el.getDraw(drawId);
+      } else {
+        const { ec } = getEntropyChain();
+        contract = ec;
+        onchain = await ec.getRound(row.round_id);
+      }
+
+      const state = Number(onchain.state || onchain[8] || 0);
       if (state < 2) {
         const ttlMs = Number(process.env.ENTROPY_ROUND_TTL_MS || 300000);
         const createdMs = row.created_at ? new Date(row.created_at).getTime() : Date.now();
         if (Date.now() - createdMs > ttlMs) {
           await updateEntropyRound(row.round_id, { state: 'expired' });
-          await ec.markExpired(row.round_id).catch(() => {});
+          if (game === 'lotto') {
+            await contract.markExpired(Number(row.request_id || 0)).catch(() => {});
+          } else {
+            await contract.markExpired(row.round_id).catch(() => {});
+          }
           return err(res, 'Entropy round expired before callback fulfillment', 409, 'ENTROPY_EXPIRED');
         }
         return err(res, 'Entropy not ready', 409, 'ENTROPY_NOT_READY');
       }
 
-      const randomHex = onchain.entropyRandom;
+      const randomHex = onchain.entropyRandom || onchain[3] || '0x0';
       const bet = toNum(row.bet_amount, 0);
-      const game = row.game || (action.startsWith('slots') ? 'slots' : (action.startsWith('lotto') ? 'lotto' : (action.startsWith('dice') ? 'dice' : 'coinflip')));
 
       let result = null;
       let won = false;
@@ -791,7 +893,7 @@ module.exports = async (req, res) => {
       });
       await upsertGameStats(game, bet, payout, 1);
 
-      const onchainRequestId = Number(onchain.sequenceNumber || onchain[3] || 0) || null;
+      const onchainRequestId = Number(onchain.sequenceNumber || onchain[3] || onchain[1] || 0) || null;
       await updateEntropyRound(row.round_id, {
         state: 'settled',
         won,
@@ -799,7 +901,15 @@ module.exports = async (req, res) => {
         request_id: onchainRequestId ? String(onchainRequestId) : (row.request_id || null),
         entropy_value: randomHex,
       });
-      await ec.markSettled(row.round_id).catch(() => {});
+      
+      // Mark settled on the correct contract
+      if (game === 'lotto') {
+        // Lotto uses settleDraw instead of markSettled
+        const drawId = Number(row.request_id || 0);
+        await contract.settleDraw(drawId).catch(() => {});
+      } else {
+        await contract.markSettled(row.round_id).catch(() => {});
+      }
 
       const response = {
         roundId: row.round_id,
@@ -1053,22 +1163,20 @@ module.exports = async (req, res) => {
       if (agentBal < betAmount) return err(res, 'Insufficient balance for tickets', 400, 'INSUFFICIENT_BALANCE');
       if (casinoBal < maxLiability) return err(res, `Casino can't cover max payout. Max possible payout: ${maxLiability} Ξ, casino balance: ${casinoBal} Ξ`, 400, 'MAX_BET_EXCEEDED');
 
-      const { provider, casino, ec } = getEntropyChain();
+      const { provider, casino, el } = getEntropyLotto();
       const net = await provider.getNetwork();
       const chainId = Number(net.chainId);
 
-      const roundId = `0x${randHex(32)}`;
-      const userRandom = `0x${randHex(32)}`;
-      const betWei = ethers.parseEther(String(betAmount));
-      const fee = await ec.quoteFee();
-      const tx = await ec.connect(casino).requestCoinflip(roundId, agent, 0, betWei, userRandom, { value: fee });
-      await tx.wait();
-
-      let sequenceNumber = null;
-      try {
-        const onchainRound = await ec.getRound(roundId);
-        sequenceNumber = Number(onchainRound.sequenceNumber || onchainRound[3] || 0) || null;
-      } catch (_) {}
+      // Get current draw ID from contract
+      const currentDrawId = await el.currentDrawId();
+      
+      // Buy tickets for each count
+      const ticketTxs = [];
+      for (let i = 0; i < ticketCount; i++) {
+        const tx = await el.connect(casino).buyTicket(currentDrawId, agent, pickedNumber);
+        await tx.wait();
+        ticketTxs.push(tx.hash);
+      }
 
       const nonce = Number(ch.nonce || 0) + 1;
       const updated = await updateChannel(ch.id, {
@@ -1078,19 +1186,32 @@ module.exports = async (req, res) => {
         games_played: Number(ch.games_played || 0) + 1,
       });
 
+      // Store draw info (entropy request will happen later when draw time arrives)
       await insertEntropyRound({
-        round_id: roundId,
+        round_id: `lotto-${currentDrawId}-${agent}`,
         agent,
         game: 'lotto',
         bet_amount: betAmount,
         choice: `${pickedNumber}:${ticketCount}`,
-        request_id: sequenceNumber ? String(sequenceNumber) : null,
-        request_tx_hash: tx.hash,
-        state: 'entropy_requested',
+        request_id: String(currentDrawId),
+        request_tx_hash: ticketTxs[0],
+        state: 'ticket_purchased',
         created_at: nowIso(),
       });
 
-      const response = { roundId, requestId: sequenceNumber, requestTxHash: tx.hash, chainId, status: 'entropy_requested', pickedNumber, ticketCount, totalCost: String(betAmount), agentBalance: String(updated.agent_balance), casinoBalance: String(updated.casino_balance), nonce, game: 'lotto' };
+      const response = { 
+        drawId: Number(currentDrawId), 
+        ticketTxHashes: ticketTxs, 
+        chainId, 
+        status: 'ticket_purchased', 
+        pickedNumber, 
+        ticketCount, 
+        totalCost: String(betAmount), 
+        agentBalance: String(updated.agent_balance), 
+        casinoBalance: String(updated.casino_balance), 
+        nonce, 
+        game: 'lotto' 
+      };
       await putStoredRequest(idemKey, action, agent, response);
       await insertEvent('game', action, shortAddr(agent), response);
       return reply(res, response);
