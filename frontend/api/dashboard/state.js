@@ -8,6 +8,12 @@ const IFUND = process.env.INSURANCE_FUND || '0xb961b7C7cD68A9BC746483Fb56D52F564
 const RLY = process.env.RELAY_ROUTER || '0x7Ccf9A9a35219f7B6FAe02DAB5c8a5130F9F23CC';
 const HOUSE = process.env.CASINO_OWNER || '0x1Af5f519DC738aC0f3B58B19A4bB8A8441937e78';
 
+// Pyth Entropy contracts
+const E_SLOTS = process.env.ENTROPY_SLOTS || '0xC9Bb1d11671005A5325EbBa5471ea68D6600842a';
+const E_COINFLIP = process.env.ENTROPY_COINFLIP || '0x42387f4042ba8db4bBa8bCb20a70e8c0622C4cEF';
+const E_DICE = process.env.ENTROPY_DICE || '0x88590508F618b2643656fc61A5878e14ccc4f1B9';
+const E_LOTTO = process.env.ENTROPY_LOTTO || '0x2F945B62b766A5A710DF5F4CE2cA77216495d26F';
+
 async function getChannels() {
   const strictQuery =
     'casino_channels?select=agent,agent_balance,casino_balance,nonce,games_played,opened_at,status,agent_deposit,casino_deposit,settlement_mode,open_tx_hash,fund_tx_hash&status=eq.open&settlement_mode=eq.onchain-settle&open_tx_hash=not.is.null&fund_tx_hash=not.is.null&order=opened_at.desc&limit=200';
@@ -72,11 +78,15 @@ module.exports = async (req, res) => {
         bankrollManager: BRM,
         insuranceFund: IFUND,
         relayRouter: RLY,
+        entropySlots: E_SLOTS,
+        entropyCoinflip: E_COINFLIP,
+        entropyDice: E_DICE,
+        entropyLotto: E_LOTTO,
       },
       stats: {
         activeChannels: outChannels.length,
         pendingCommits: Array.isArray(pending) ? pending.length : 0,
-        registeredGames: 3,
+        registeredGames: 4,
       },
       funds: {
         houseTreasury: treasuryEth,
