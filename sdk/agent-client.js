@@ -13,6 +13,12 @@ const path = require('path');
 class AgentCasinoClient {
   constructor(casinoUrl, options = {}) {
     const normalized = String(casinoUrl || 'https://www.agentroyale.xyz/api/a2a/casino').replace(/\/$/, '');
+    
+    // Security: Enforce HTTPS to prevent MITM attacks
+    if (!normalized.startsWith('https://')) {
+      throw new Error(`Security: Casino URL must use HTTPS. Got: ${normalized}`);
+    }
+    
     this.casinoUrl = /\/a2a\/casino$/.test(normalized) ? normalized : `${normalized}/a2a/casino`;
     this.apiBase = this.casinoUrl.replace(/\/a2a\/casino$/, '');
 
