@@ -3,6 +3,7 @@ const { rest, hasConfig } = require('../_supabase');
 const fallback = {
   slots: { totalRounds: 0, totalWagered: '0', totalPaidOut: '0' },
   coinflip: { totalRounds: 0, totalWagered: '0', totalPaidOut: '0' },
+  dice: { totalRounds: 0, totalWagered: '0', totalPaidOut: '0' },
   lotto: { totalRounds: 0, totalWagered: '0', totalPaidOut: '0' },
 };
 
