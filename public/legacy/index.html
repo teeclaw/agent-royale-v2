@@ -368,8 +368,13 @@
     /* ── Games Grid ─────────────────────────────── */
     .games__grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      grid-template-columns: repeat(2, 1fr);
       gap: 24px;
+    }
+    @media (max-width: 768px) {
+      .games__grid {
+        grid-template-columns: 1fr;
+      }
     }
     .game-card {
       background: var(--bg-card);
