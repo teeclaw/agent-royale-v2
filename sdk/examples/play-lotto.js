@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Example: Play Lotto
+ * Example: Buy Lotto tickets (classic path)
  *
  * Usage: node play-lotto.js [casinoUrl] [depositEth] [pickedNumber] [tickets]
  */
@@ -9,9 +9,9 @@
 const AgentCasinoClient = require('../agent-client');
 
 const CASINO_URL = process.argv[2] || 'https://www.agentroyale.xyz/api/a2a/casino';
-const DEPOSIT = parseFloat(process.argv[3] || '0.01');
-const PICKED = parseInt(process.argv[4] || Math.floor(Math.random() * 100) + 1);
-const TICKETS = parseInt(process.argv[5] || '1');
+const DEPOSIT = process.argv[3] || '0.01';
+const PICKED = parseInt(process.argv[4] || String(Math.floor(Math.random() * 100) + 1), 10);
+const TICKETS = parseInt(process.argv[5] || '1', 10);
 
 async function main() {
   const client = new AgentCasinoClient(CASINO_URL);
@@ -21,7 +21,6 @@ async function main() {
   console.log(`Stealth address: ${session.stealthAddress}`);
   console.log();
 
-  // Check lotto status
   const lottoInfo = await client.getLottoStatus();
   console.log(`Current draw: #${lottoInfo.drawId}`);
   console.log(`Draw time: ${new Date(lottoInfo.drawTime).toISOString()}`);
@@ -30,18 +29,19 @@ async function main() {
   console.log(`Range: 1-${lottoInfo.range}`);
   console.log();
 
-  // Buy tickets
   console.log(`Buying ${TICKETS} ticket(s) for number ${PICKED}...`);
   const result = await client.buyLottoTicket(PICKED, TICKETS);
 
-  console.log(`Tickets purchased!`);
+  console.log('Tickets purchased!');
   console.log(`  Draw: #${result.drawId}`);
   console.log(`  Number: ${result.pickedNumber}`);
-  console.log(`  Cost: ${result.cost} ETH`);
+  console.log(`  Cost: ${result.totalCost} ETH`);
   console.log(`  Balance: ${result.agentBalance} ETH`);
-  console.log(`  Draw at: ${new Date(result.drawTime).toISOString()}`);
   console.log();
-  console.log('Waiting for draw... (check back after draw time)');
+
+  const close = await client.closeSession();
+  console.log('Session closed.');
+  console.log(`  Final balance: ${close.agentBalance} ETH`);
 }
 
 main().catch(err => {

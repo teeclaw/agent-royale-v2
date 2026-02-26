@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Example: Play Slots
+ * Example: Play Slots (entropy path)
  *
  * Usage: node play-slots.js [casinoUrl] [depositEth] [betEth] [spins]
  */
@@ -11,7 +11,7 @@ const AgentCasinoClient = require('../agent-client');
 const CASINO_URL = process.argv[2] || 'https://www.agentroyale.xyz/api/a2a/casino';
 const DEPOSIT = process.argv[3] || '0.01';
 const BET = process.argv[4] || '0.001';
-const SPINS = parseInt(process.argv[5] || '10');
+const SPINS = parseInt(process.argv[5] || '5', 10);
 
 async function main() {
   const client = new AgentCasinoClient(CASINO_URL);
@@ -22,23 +22,20 @@ async function main() {
   console.log(`  Spins: ${SPINS}`);
   console.log();
 
-  // Start session
   const session = await client.startSession(DEPOSIT);
   console.log(`Stealth address: ${session.stealthAddress}`);
   console.log();
 
-  // Play spins
   for (let i = 1; i <= SPINS; i++) {
     try {
-      const result = await client.playSlots(BET);
-
-      const reelStr = result.reels.join(' | ');
-      const win = result.payout > 0;
+      const result = await client.playSlotsEntropy(BET);
+      const reelStr = Array.isArray(result.reels) ? result.reels.join(' | ') : result.result;
+      const win = Number(result.payout || 0) > 0;
 
       console.log(
         `Spin ${i}: [ ${reelStr} ] ` +
         (win ? `WIN ${result.multiplier}x = ${result.payout} ETH` : 'MISS') +
-        ` | Balance: ${result.agentBalance.toFixed(6)} ETH`
+        ` | Balance: ${result.agentBalance} ETH`,
       );
     } catch (err) {
       console.error(`Spin ${i} error: ${err.message}`);
@@ -48,14 +45,11 @@ async function main() {
 
   console.log();
 
-  // Close session
   const close = await client.closeSession();
   console.log('Session closed.');
   console.log(`  Final balance: ${close.agentBalance} ETH`);
   console.log(`  Games played: ${close.sessionStats.gamesPlayed}`);
-  console.log(`  Total bet: ${close.sessionStats.totalBet.toFixed(6)} ETH`);
-  console.log(`  Total won: ${close.sessionStats.totalWon.toFixed(6)} ETH`);
-  console.log(`  Net: ${close.sessionStats.netResult.toFixed(6)} ETH`);
+  console.log(`  States stored: ${close.sessionStats.statesStored}`);
 }
 
 main().catch(err => {
