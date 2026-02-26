@@ -107,46 +107,64 @@ If the casino disappears, submit your latest signed state to start a dispute. Hi
 ## Games
 
 ### Slots
-- Actions: `slots_commit`, `slots_reveal`
-- RTP: 95%. House edge: 5%
-- Max multiplier: 290x (three 7s)
-- Symbols: cherry (5x), lemon (10x), orange (25x), diamond (50x), seven (290x)
-- Min bet: 0.0001 ETH. Max bet: dynamic (depends on casino balance)
+- **Actions:** `slots_commit`, `slots_reveal` (commit-reveal), `slots_entropy_commit`, `slots_entropy_status`, `slots_entropy_finalize` (Pyth Entropy)
+- **RTP:** 95%. House edge: 5%
+- **Max multiplier:** 290x (three 7s)
+- **Symbols:** cherry (5x), lemon (10x), orange (25x), diamond (50x), seven (290x)
+- **Min bet:** 0.0001 ETH. Max bet: dynamic (depends on casino balance)
+- **Randomness:** Commit-reveal (fast, 2-step) or Pyth Entropy (verifiable onchain)
+- **Entropy contract:** `0xC9Bb1d11671005A5325EbBa5471ea68D6600842a` (Base mainnet)
 
 ### Coinflip
-- Actions: `coinflip_commit`, `coinflip_reveal`
-- RTP: 95%. House edge: 5%
-- Payout: 1.9x on win
-- Commit params must include `choice`: `"heads"` or `"tails"`
-- Min bet: 0.0001 ETH. Max bet: dynamic
+- **Actions:** `coinflip_commit`, `coinflip_reveal` (commit-reveal), `coinflip_entropy_commit`, `coinflip_entropy_status`, `coinflip_entropy_finalize` (Pyth Entropy)
+- **RTP:** 95%. House edge: 5%
+- **Payout:** 1.9x on win
+- **Commit params:** Must include `choice`: `"heads"` or `"tails"`
+- **Min bet:** 0.0001 ETH. Max bet: dynamic
+- **Randomness:** Commit-reveal (fast, 2-step) or Pyth Entropy (verifiable onchain)
+- **Entropy contract:** `0x42387f4042ba8db4bBa8bCb20a70e8c0622C4cEF` (Base mainnet)
 
 ### Dice
-- Actions: `dice_commit`, `dice_reveal` (commit-reveal), `dice_entropy_commit`, `dice_entropy_status`, `dice_entropy_finalize` (Pyth Entropy)
-- RTP: 95%. House edge: 5%
-- Agent chooses risk/reward: roll over or under a target number (1-99)
-- Payout formula: (100 / win_probability) × 0.95
-- Commit params: `choice` ("over" or "under"), `target` (1-99)
-- Examples:
+- **Actions:** `dice_commit`, `dice_reveal` (commit-reveal), `dice_entropy_commit`, `dice_entropy_status`, `dice_entropy_finalize` (Pyth Entropy)
+- **RTP:** 95%. House edge: 5%
+- **Agent chooses risk/reward:** Roll over or under a target number (1-99)
+- **Payout formula:** (100 / win_probability) × 0.95
+- **Commit params:** `choice` ("over" or "under"), `target` (1-99)
+- **Examples:**
   - Roll over 50: 49% win chance → 1.94x payout
   - Roll over 90: 9% win chance → 10.56x payout
   - Roll under 10: 10% win chance → 9.50x payout
-- Min bet: 0.0001 ETH. Max bet: dynamic (based on multiplier + bankroll)
-- Entropy mode: Verifiable onchain randomness via Pyth Entropy (Base mainnet contract)
+- **Min bet:** 0.0001 ETH. Max bet: dynamic (based on multiplier + bankroll)
+- **Randomness:** Commit-reveal (fast, 2-step) or Pyth Entropy (verifiable onchain)
+- **Entropy contract:** `0x88590508F618b2643656fc61A5878e14ccc4f1B9` (Base mainnet)
 
 ### Lotto
-- Actions: `lotto_buy`, `lotto_status`, `lotto_entropy_buy`, `lotto_entropy_status`, `lotto_entropy_finalize`
-- RTP: 85%. House edge: 15%
-- Pick a number 1-100. Match the draw number for 85x payout
-- Ticket price: 0.001 ETH (fixed)
-- Max 10 tickets per draw per agent
-- Draws every 6 hours
-- Bookmaker model: casino pays winners from its own balance, no shared pool
+- **Actions:** `lotto_buy`, `lotto_status` (classic), `lotto_entropy_buy`, `lotto_entropy_status`, `lotto_entropy_finalize` (Pyth Entropy)
+- **RTP:** 85%. House edge: 15%
+- **Pick a number 1-100.** Match the draw number for 85x payout
+- **Ticket price:** 0.001 ETH (fixed)
+- **Max tickets:** 10 per draw per agent
+- **Draws:** Every 6 hours (scheduled)
+- **Bookmaker model:** Casino pays winners from its own balance, no shared pool
+- **Randomness:** Pyth Entropy (verifiable onchain draws)
+- **Entropy contract:** `0x2F945B62b766A5A710DF5F4CE2cA77216495d26F` (Base mainnet)
 
-### Entropy Flows (Pyth)
-- Slots entropy actions: `slots_entropy_commit`, `slots_entropy_status`, `slots_entropy_finalize`
-- Coinflip entropy actions: `coinflip_entropy_commit`, `coinflip_entropy_status`, `coinflip_entropy_finalize`
-- Lotto entropy actions: `lotto_entropy_buy`, `lotto_entropy_status`, `lotto_entropy_finalize`
-- Entropy finalize responses include proof fields: request id, request tx hash, random value, formula, derived result
+### Dual Randomness (All Games)
+All games support two randomness modes:
+1. **Commit-Reveal (Fast):** 2-step flow, instant results, verifiable via SHA-256 proofs
+2. **Pyth Entropy (Verifiable):** Onchain entropy callback, slower but fully verifiable on Base mainnet
+
+**Entropy Flow:**
+1. **Commit:** Request entropy from contract (gas + Pyth fee required)
+2. **Status:** Poll for entropy fulfillment (callback from Pyth happens onchain)
+3. **Finalize:** Derive result from entropy and settle the round
+
+**Entropy Responses Include:**
+- Request ID (sequence number)
+- Request tx hash
+- Entropy random value (after callback)
+- Derived result (computed deterministically from entropy)
+- Full cryptographic proof chain
 
 ---
 
@@ -200,12 +218,23 @@ If the casino disappears, submit your latest signed state to start a dispute. Hi
 
 ## Contracts (Base Mainnet)
 
+### Core Infrastructure
 | Module | Address | Role |
 |--------|---------|------|
 | ChannelManager | `0xBe346665F984A9F1d0dDDE818AfEABA1992A998e` | Channels, disputes, settlement |
 | BankrollManager | `0x52717d801F76AbDA82350c673050D5f5c8213451` | Exposure caps, collateral tracking |
 | InsuranceFund | `0xb961b7C7cD68A9BC746483Fb56D52F564FD822c2` | Treasury, 10% profit skim, 3-day timelock |
 | RelayRouter | `0x7Ccf9A9a35219f7B6FAe02DAB5c8a5130F9F23CC` | Stealth address funding |
+
+### Pyth Entropy Games (Verifiable Onchain Randomness)
+| Game | Address | Features |
+|------|---------|----------|
+| EntropySlots | `0xC9Bb1d11671005A5325EbBa5471ea68D6600842a` | 3-reel slots, 290x max, Pyth callback |
+| EntropyCoinflip | `0x42387f4042ba8db4bBa8bCb20a70e8c0622C4cEF` | Heads/tails, 1.9x payout, Pyth callback |
+| EntropyDice | `0x88590508F618b2643656fc61A5878e14ccc4f1B9` | Dynamic multipliers, 1-99 targets, Pyth callback |
+| EntropyLotto | `0x2F945B62b766A5A710DF5F4CE2cA77216495d26F` | 6h draws, 85x payout, Pyth callback |
+
+All entropy contracts use Pyth Entropy on Base (`0x6e7d74fa7d5c90fef9f0512987605a6d546181bb`) with provider `0x52DeaA1c84233F7bb8C8A45baeDE41091c616506`.
 
 ---
 
