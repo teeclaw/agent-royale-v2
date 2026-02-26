@@ -284,12 +284,20 @@
           bankrollManager: 'BankrollManager',
           insuranceFund: 'InsuranceFund',
           relayRouter: 'RelayRouter',
+          entropySlots: 'EntropySlots',
+          entropyCoinflip: 'EntropyCoinflip',
+          entropyDice: 'EntropyDice',
+          entropyLotto: 'EntropyLotto',
         };
         const contractLabels = {
           channelManager: 'Core',
           bankrollManager: 'Risk',
           insuranceFund: 'Treasury',
           relayRouter: 'Privacy',
+          entropySlots: 'Pyth Slots',
+          entropyCoinflip: 'Pyth Coinflip',
+          entropyDice: 'Pyth Dice',
+          entropyLotto: 'Pyth Lotto',
         };
         document.getElementById('contracts').innerHTML = Object.entries(data.contracts)
           .filter(([, v]) => v)
