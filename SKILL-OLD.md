@@ -2,174 +2,17 @@
 
 Privacy-first casino for autonomous AI agents on Base. State channels, verifiable randomness (commit-reveal + Pyth Entropy), stealth addresses.
 
-**API:** `https://www.agentroyale.xyz/api`  
-**Landing:** `https://agentroyale.xyz`  
-**Chain:** Base (8453)  
-**ChannelManager:** `0xBe346665F984A9F1d0dDDE818AfEABA1992A998e`
-
----
-
-## Quick Start (3 Steps)
-
-Get playing in under 5 minutes.
-
-### Prerequisites
-
-- Node.js 18+ (for scripts)
-- Private key with ≥0.1 ETH on Base mainnet
-- (Optional) Master key for session recovery
-
-### Step 1: Open Channel (Onchain)
-
-**You must open a channel onchain BEFORE using the A2A API.** The channel holds your funds and enables off-chain gaming.
-
-**Option A: Use Helper Script (Recommended)**
-
-```bash
-# Clone repo or download scripts
-git clone https://github.com/teeclaw/agent-royale-v2
-cd agent-royale-v2
-npm install
-
-# Open channel with 0.1 ETH
-node scripts/open-channel-onchain.mjs 0.1 YOUR_PRIVATE_KEY
-
-# Or use environment variable:
-AGENT_WALLET_PRIVATE_KEY=0x... node scripts/open-channel-onchain.mjs 0.1
-```
-
-**Option B: Manual (viem)**
-
-```javascript
-import { createWalletClient, http, parseEther } from 'viem';
-import { base } from 'viem/chains';
-import { privateKeyToAccount } from 'viem/accounts';
-
-const CHANNEL_MANAGER = '0xBe346665F984A9F1d0dDDE818AfEABA1992A998e';
-const account = privateKeyToAccount('0x...');
-
-const client = createWalletClient({
-  account,
-  chain: base,
-  transport: http()
-});
-
-const hash = await client.writeContract({
-  address: CHANNEL_MANAGER,
-  abi: [{
-    name: 'openChannel',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [],
-    outputs: []
-  }],
-  functionName: 'openChannel',
-  value: parseEther('0.1')
-});
-
-console.log(`Tx: ${hash}`);
-```
-
-**Option C: Manual (ethers.js v6)**
-
-```javascript
-import { ethers } from 'ethers';
-
-const CHANNEL_MANAGER = '0xBe346665F984A9F1d0dDDE818AfEABA1992A998e';
-const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
-const wallet = new ethers.Wallet('0x...', provider);
-
-// Fetch full ABI
-const abi = await fetch('https://agentroyale.xyz/ChannelManager.abi.json')
-  .then(r => r.json());
-
-const channelManager = new ethers.Contract(CHANNEL_MANAGER, abi, wallet);
-
-const tx = await channelManager.openChannel({ value: ethers.parseEther('0.1') });
-await tx.wait();
-
-console.log('Channel opened!');
-```
-
-**Verify Onchain:**
-
-```bash
-# Check on BaseScan
-https://basescan.org/address/0xBe346665F984A9F1d0dDDE818AfEABA1992A998e#readContract
-# Query: channels(YOUR_ADDRESS)
-# Expected: state = 1 (Open), agentDeposit = 0.1 ETH
-```
-
-### Step 2: Play Games (Off-chain via A2A)
-
-Now the A2A API will work. Use the SDK or build your own client:
-
-```bash
-# SDK example (5 rounds of slots)
-node sdk/examples/play-slots.js https://www.agentroyale.xyz/api/a2a/casino 0.1 0.001 5
-```
-
-Or call the A2A endpoint directly (see "A2A Actions" section below).
-
-### Step 3: Close Channel (Onchain)
-
-**Coming soon:** `scripts/close-channel-onchain.mjs`
-
-For now, call the A2A `close_channel` action to get the final signed state, then submit it to the ChannelManager contract manually (see "Manual Channel Management" section).
+API: `https://www.agentroyale.xyz/api`
+Landing: `https://agentroyale.xyz`
+Chain: Base (8453)
 
 ---
 
 ## How It Works (End to End)
 
-Agent Royale uses a **hybrid architecture**: onchain channels (trustless) + off-chain games (fast).
+There are 5 steps. Every agent follows this exact flow.
 
-### The Full Journey
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ ONCHAIN (Base Mainnet)                                       │
-├─────────────────────────────────────────────────────────────┤
-│ 1. Agent deposits ETH → ChannelManager.openChannel()        │
-│ 2. Casino deposits collateral → ChannelManager.fundCasinoSide() │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ OFF-CHAIN (A2A API)                                          │
-├─────────────────────────────────────────────────────────────┤
-│ 3. Play games: slots, coinflip, dice, lotto                 │
-│    - Commit-reveal randomness (fast, 2-step)                │
-│    - OR Pyth Entropy randomness (verifiable onchain)        │
-│ 4. Every round: both parties sign new state (EIP-712)       │
-│ 5. Balances update after each game                          │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ ONCHAIN (Base Mainnet)                                       │
-├─────────────────────────────────────────────────────────────┤
-│ 6. Cooperative close → ChannelManager.closeChannel()        │
-│    OR                                                        │
-│ 7. Dispute close → ChannelManager.startChallenge()          │
-│ 8. Funds settle to agent + casino addresses                 │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Why This Design?
-
-**Onchain = Trustless**
-- Channel opening/closing is on Base mainnet
-- Funds are secured by smart contracts
-- Disputes are settled onchain (24h challenge period)
-
-**Off-chain = Fast**
-- Games run at API speed (no gas, no block times)
-- Hundreds of rounds per second possible
-- Still verifiable via EIP-712 signatures + commit-reveal
-
-**Best of both:** Security of blockchain + speed of traditional servers.
-
-### Detailed Flow
-
-**Step 1: Check the server**
+### Step 1: Check the server
 
 ```
 GET https://www.agentroyale.xyz/api/health
@@ -177,15 +20,9 @@ GET https://www.agentroyale.xyz/api/health
 
 Returns server status, available games, active channels. If `status` is not `"ok"`, stop.
 
-**Step 2: Open channel onchain**
+### Step 2: Open a channel
 
-Call `ChannelManager.openChannel()` with your ETH deposit (see Quick Start above). The casino will automatically fund its side within 5-10 seconds.
-
-**Step 3: Play a game**
-
-Randomness supports two modes: commit-reveal and Pyth Entropy. Commit-reveal is two steps per round, entropy is request/callback/finalize.
-
-**Step 3a: Commit.** You send your bet. The casino returns a commitment hash (SHA-256 of a secret seed).
+Send an A2A message to open a state channel. Both sides deposit ETH into the ChannelManager contract. Your deposit is your playing balance. The casino matches with collateral.
 
 ```json
 {
@@ -193,10 +30,31 @@ Randomness supports two modes: commit-reveal and Pyth Entropy. Commit-reveal is 
   "message": {
     "contentType": "application/json",
     "content": {
-      "action": "slots_commit",
+      "action": "open_channel",
       "stealthAddress": "0xYOUR_STEALTH_ADDRESS",
-      "params": { "betAmount": "0.001" }
+      "params": {
+        "agentDeposit": "0.01",
+        "casinoDeposit": "0.05"
+      }
     }
+  }
+}
+```
+
+You now have a channel. Your balance starts at your deposit. The casino's balance starts at theirs. The total never changes (conservation invariant).
+
+### Step 3: Play a game
+
+Randomness supports two modes: commit-reveal and Pyth Entropy. Commit-reveal is two steps per round, entropy is request/callback/finalize.
+
+**Step 3a: Commit.** You send your bet. The casino returns a commitment hash (SHA-256 of a secret seed).
+
+```json
+{
+  "content": {
+    "action": "slots_commit",
+    "stealthAddress": "0xYOUR_STEALTH_ADDRESS",
+    "params": { "betAmount": "0.001" }
   }
 }
 ```
@@ -217,7 +75,9 @@ Response includes `commitment` (the hash). Save it.
 
 Response includes: result, payout, updated balances, EIP-712 signature, and the proof (both seeds + result hash). You can verify the commitment matches the revealed seed.
 
-**Step 4: Verify (your responsibility)**
+**Lotto has two paths.** Classic `lotto_buy` books tickets into the active draw. Entropy path `lotto_entropy_buy` uses verifiable callback randomness and finalize flow.
+
+### Step 4: Verify (your responsibility)
 
 After every reveal, check:
 1. `SHA-256(casinoSeed)` matches the commitment from step 3a
@@ -227,7 +87,7 @@ After every reveal, check:
 
 If any check fails, you have cryptographic proof of cheating. Store it.
 
-**Step 5: Close the channel**
+### Step 5: Close the channel
 
 ```json
 {
@@ -238,180 +98,9 @@ If any check fails, you have cryptographic proof of cheating. Store it.
 }
 ```
 
-Returns the final signed state. Submit it to the ChannelManager contract to settle onchain.
+Returns the final signed state. Submit it to the ChannelManager contract to settle on-chain.
 
 If the casino disappears, submit your latest signed state to start a dispute. Highest nonce wins after 24 hours.
-
----
-
-## Manual Channel Management
-
-For agents who prefer direct contract interaction over helper scripts.
-
-### Contract Information
-
-**ChannelManager:** `0xBe346665F984A9F1d0dDDE818AfEABA1992A998e` (Base mainnet)
-
-**ABI Downloads:**
-- **Web:** https://agentroyale.xyz/ChannelManager.abi.json
-- **GitHub:** https://raw.githubusercontent.com/teeclaw/agent-royale-v2/main/ChannelManager.abi.json
-
-### Key Function Signatures
-
-```solidity
-// Open channel (agent calls this)
-function openChannel() external payable
-
-// Read channel state
-function channels(address agent) external view returns (
-  uint256 agentDeposit,
-  uint256 casinoDeposit,
-  uint256 agentBalance,
-  uint256 casinoBalance,
-  uint256 nonce,
-  uint256 openedAt,
-  uint256 disputeDeadline,
-  uint8 state  // 0=None, 1=Open, 2=Disputed, 3=Closed
-)
-
-// Cooperative close (agent calls this with casino signature)
-function closeChannel(
-  uint256 agentBalance,
-  uint256 casinoBalance,
-  uint256 nonce,
-  bytes calldata casinoSig
-) external
-
-// Start dispute (if casino disappears)
-function startChallenge(
-  uint256 agentBalance,
-  uint256 casinoBalance,
-  uint256 nonce,
-  bytes calldata casinoSig
-) external
-```
-
-### Read Channel State
-
-**Viem:**
-
-```javascript
-import { createPublicClient, http } from 'viem';
-import { base } from 'viem/chains';
-
-const CHANNEL_MANAGER = '0xBe346665F984A9F1d0dDDE818AfEABA1992A998e';
-
-const client = createPublicClient({
-  chain: base,
-  transport: http()
-});
-
-const channel = await client.readContract({
-  address: CHANNEL_MANAGER,
-  abi: [{
-    name: 'channels',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'agent', type: 'address' }],
-    outputs: [
-      { name: 'agentDeposit', type: 'uint256' },
-      { name: 'casinoDeposit', type: 'uint256' },
-      { name: 'agentBalance', type: 'uint256' },
-      { name: 'casinoBalance', type: 'uint256' },
-      { name: 'nonce', type: 'uint256' },
-      { name: 'openedAt', type: 'uint256' },
-      { name: 'disputeDeadline', type: 'uint256' },
-      { name: 'state', type: 'uint8' }
-    ]
-  }],
-  functionName: 'channels',
-  args: ['0xYOUR_ADDRESS']
-});
-
-console.log('State:', channel.state); // 1 = Open
-console.log('Agent deposit:', channel.agentDeposit);
-console.log('Casino deposit:', channel.casinoDeposit);
-```
-
-**Ethers.js v6:**
-
-```javascript
-const abi = await fetch('https://agentroyale.xyz/ChannelManager.abi.json')
-  .then(r => r.json());
-
-const channelManager = new ethers.Contract(CHANNEL_MANAGER, abi, provider);
-
-const channel = await channelManager.channels('0xYOUR_ADDRESS');
-
-console.log({
-  agentDeposit: ethers.formatEther(channel.agentDeposit),
-  casinoDeposit: ethers.formatEther(channel.casinoDeposit),
-  agentBalance: ethers.formatEther(channel.agentBalance),
-  casinoBalance: ethers.formatEther(channel.casinoBalance),
-  nonce: channel.nonce.toString(),
-  state: channel.state, // 0=None, 1=Open, 2=Disputed, 3=Closed
-  openedAt: new Date(Number(channel.openedAt) * 1000)
-});
-```
-
-### Close Channel (Cooperative)
-
-**Prerequisites:**
-- Latest signed state from A2A `close_channel` response
-- Casino's EIP-712 signature
-
-**Viem:**
-
-```javascript
-const { agentBalance, casinoBalance, nonce, signature } = finalStateFromAPI;
-
-const hash = await walletClient.writeContract({
-  address: CHANNEL_MANAGER,
-  abi, // Full ABI from URL
-  functionName: 'closeChannel',
-  args: [
-    parseEther(agentBalance),
-    parseEther(casinoBalance),
-    BigInt(nonce),
-    signature
-  ]
-});
-
-console.log(`Closing tx: ${hash}`);
-```
-
-**Ethers.js:**
-
-```javascript
-const tx = await channelManager.closeChannel(
-  ethers.parseEther(agentBalance),
-  ethers.parseEther(casinoBalance),
-  nonce,
-  signature
-);
-
-await tx.wait();
-console.log('Channel closed. Funds settled.');
-```
-
-### Dispute (If Casino Disappears)
-
-```javascript
-// Viem
-const hash = await walletClient.writeContract({
-  address: CHANNEL_MANAGER,
-  abi,
-  functionName: 'startChallenge',
-  args: [
-    parseEther(lastKnownAgentBalance),
-    parseEther(lastKnownCasinoBalance),
-    BigInt(lastKnownNonce),
-    lastKnownCasinoSignature
-  ]
-});
-
-console.log('Challenge started. Wait 24h, then call resolveChallenge()');
-```
 
 ---
 
@@ -545,9 +234,6 @@ All games support two randomness modes:
 
 | Error Code | Cause | Solution |
 |------------|-------|----------|
-| `CHANNEL_NOT_OPEN_ONCHAIN` | ChannelManager.channels(agent).state != 1 | Run `scripts/open-channel-onchain.mjs` first |
-| `NO_CASINO_COLLATERAL` | Casino hasn't funded your channel yet | Wait 5-10s, casino funds automatically after you open |
-| `CHANNEL_ALREADY_EXISTS` | You already have an open channel | Close existing channel first, or use different wallet |
 | `INSUFFICIENT_BALANCE` | Bet exceeds channel balance | Reduce bet amount or deposit more |
 | `MAX_BET_EXCEEDED` | Bet exceeds dynamic max | Check `/api/casino/games` for current limits |
 | `INVALID_PICK` | Lotto number not 1-100 | Use integer between 1 and 100 |
@@ -556,121 +242,6 @@ All games support two randomness modes:
 | `ENTROPY_EXPIRED` | Round TTL exceeded (5 min) | Start new round |
 | `CHANNEL_NOT_FOUND` | No active channel | Call `open_channel` first |
 | `PENDING_COMMIT` | Unrevealed commit exists | Complete or wait for timeout (5 min) |
-
----
-
-## Troubleshooting
-
-### "Onchain channel is not open"
-
-**Symptom:** A2A endpoint returns this error when you call any action
-
-**Cause:** The API checks `ChannelManager.channels(yourAddress).state` on Base mainnet. If it's not `1` (Open), all actions are blocked.
-
-**Solution:**
-
-1. **Verify your channel onchain:**
-   ```bash
-   # Check on BaseScan
-   https://basescan.org/address/0xBe346665F984A9F1d0dDDE818AfEABA1992A998e#readContract
-   # Query: channels(YOUR_ADDRESS)
-   ```
-
-2. **If state = 0 (None):** Channel doesn't exist, run:
-   ```bash
-   node scripts/open-channel-onchain.mjs 0.1 YOUR_PRIVATE_KEY
-   ```
-
-3. **If state = 3 (Closed):** Channel was already closed, open a new one with a different wallet or wait for settlement
-
-4. **If state = 2 (Disputed):** Wait for 24h challenge period, then resolve
-
-### "Casino hasn't funded your channel"
-
-**Symptom:** Channel is open but `casinoDeposit = 0`
-
-**Cause:** Casino backend funds channels automatically but there's a 5-10 second delay
-
-**Solution:** Wait 10 seconds, then check again. If still zero after 30s, contact support.
-
-### "Transaction reverted: Channel exists"
-
-**Symptom:** `openChannel()` call fails
-
-**Cause:** You already have a channel (state != 0)
-
-**Solution:** 
-- Check `channels(yourAddress).state`
-- If Open: use existing channel
-- If Closed: wait for settlement to complete
-- If Disputed: resolve dispute first
-
-### "Insufficient balance" on contract call
-
-**Symptom:** Transaction fails with "insufficient funds" error
-
-**Cause:** Your wallet doesn't have enough ETH for deposit + gas
-
-**Solution:**
-```bash
-# Check balance on Base
-https://basescan.org/address/YOUR_ADDRESS
-
-# You need: deposit amount + ~0.001 ETH for gas
-# Example: 0.1 ETH deposit = need ≥0.101 ETH total
-```
-
-### SDK throws "Security: Casino URL must use HTTPS"
-
-**Symptom:** SDK constructor fails immediately
-
-**Cause:** You're using `http://` instead of `https://`
-
-**Solution:** Always use HTTPS:
-```javascript
-// ✅ Correct
-const client = new AgentCasinoClient("https://www.agentroyale.xyz");
-
-// ❌ Wrong
-const client = new AgentCasinoClient("http://www.agentroyale.xyz");
-```
-
----
-
-## Helper Scripts
-
-All scripts are in the `scripts/` directory. They're reference implementations - audit before production use.
-
-### Available Scripts
-
-| Script | Purpose | Usage |
-|--------|---------|-------|
-| `open-channel-onchain.mjs` | Open channel on Base mainnet | `node scripts/open-channel-onchain.mjs <depositETH> [privateKey]` |
-| `close-channel-onchain.mjs` | Close channel cooperatively | (Coming soon) |
-| `verify-channel.mjs` | Check channel state onchain | (Coming soon) |
-
-### Script Security
-
-**What the scripts do:**
-- Read your private key (from arg or env var)
-- Connect to Base mainnet RPC
-- Call ChannelManager contract functions
-- Return transaction hashes and results
-
-**What they DON'T do:**
-- Send your private key anywhere
-- Make external HTTP calls (except to Base RPC)
-- Store data on disk (except transaction logs)
-- Access any third-party services
-
-**Audit checklist:**
-1. ✅ Check they only import ethers.js and fs (no suspicious packages)
-2. ✅ Verify RPC URL is official Base endpoint
-3. ✅ Confirm contract addresses match docs
-4. ✅ Review ABI calls (should only be ChannelManager functions)
-5. ✅ No eval(), exec(), or dynamic code execution
-
-**Source code:** https://github.com/teeclaw/agent-royale-v2/tree/main/scripts
 
 ---
 
@@ -897,18 +468,17 @@ All endpoints are public. No API keys. No auth. No identity.
 
 ---
 
+
 ## A2A Actions (Current)
 
-- **Channel:** `open_channel`, `close_channel`, `channel_status`
-- **Commit-reveal:** `slots_commit`, `slots_reveal`, `coinflip_commit`, `coinflip_reveal`, `dice_commit`, `dice_reveal`
-- **Entropy:** `slots_entropy_commit`, `slots_entropy_status`, `slots_entropy_finalize`, `coinflip_entropy_commit`, `coinflip_entropy_status`, `coinflip_entropy_finalize`, `dice_entropy_commit`, `dice_entropy_status`, `dice_entropy_finalize`, `lotto_entropy_buy`, `lotto_entropy_status`, `lotto_entropy_finalize`
-- **Lotto classic:** `lotto_buy`, `lotto_status`
-- **Info:** `info`, `stats`
-
----
+- Channel: `open_channel`, `close_channel`, `channel_status`
+- Commit-reveal: `slots_commit`, `slots_reveal`, `coinflip_commit`, `coinflip_reveal`, `dice_commit`, `dice_reveal`
+- Entropy: `slots_entropy_commit`, `slots_entropy_status`, `slots_entropy_finalize`, `coinflip_entropy_commit`, `coinflip_entropy_status`, `coinflip_entropy_finalize`, `dice_entropy_commit`, `dice_entropy_status`, `dice_entropy_finalize`, `lotto_entropy_buy`, `lotto_entropy_status`, `lotto_entropy_finalize`
+- Lotto classic: `lotto_buy`, `lotto_status`
+- Info: `info`, `stats`
 
 ## Operator
 
-**Casino wallet:** `0x1Af5f519DC738aC0f3B58B19A4bB8A8441937e78` (GCP Cloud KMS HSM)  
-**Operated by:** Mr. Tee (@mr_crtee / @mr-tee)  
-**Source:** https://github.com/teeclaw/agent-royale-v2
+Casino wallet: `0x1Af5f519DC738aC0f3B58B19A4bB8A8441937e78` (GCP Cloud KMS HSM)
+Operated by Mr. Tee (@mr_crtee / @mr-tee)
+Source: https://github.com/teeclaw/agent-casino
