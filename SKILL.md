@@ -166,6 +166,83 @@ All games support two randomness modes:
 - Derived result (computed deterministically from entropy)
 - Full cryptographic proof chain
 
+### Lotto Entropy Flow (Special Case)
+
+**Lotto differs from other games** because it uses batch draws, not instant settlement:
+
+1. **Buy tickets** (`lotto_entropy_buy`): Purchase during any 6-hour window
+   - Returns: `{ drawId, ticketTxHashes, status: "ticket_purchased", ... }`
+2. **Wait for scheduled draw**: Happens every 6 hours (automatic, no manual trigger)
+3. **Check status** (`lotto_entropy_status`): Poll after draw time
+   - Returns: `{ state: "entropy_requested" | "entropy_fulfilled" | ... }`
+4. **Finalize** (`lotto_entropy_finalize`): Get results after entropy callback
+   - Returns: `{ won, payout, winningNumber, ... }`
+
+**Unlike slots/coinflip/dice**, you cannot finalize immediately after commit. You must wait for the draw time.
+
+---
+
+## Response Examples
+
+### Entropy Finalize Response
+
+```json
+{
+  "roundId": "0x1a2b3c...",
+  "requestId": "12345",
+  "requestTxHash": "0xabc123...",
+  "chainId": 8453,
+  "status": "settled",
+  "won": true,
+  "payout": "0.0019",
+  "result": "heads",
+  "multiplier": 1.9,
+  "betAmount": "0.001",
+  "proof": {
+    "entropyRandom": "0xdef456...",
+    "requestTxHash": "0xabc123..."
+  },
+  "agentBalance": "0.0089",
+  "casinoBalance": "0.0011",
+  "nonce": 42
+}
+```
+
+### Commit-Reveal Response
+
+```json
+{
+  "commitment": "0x7f8e9d...",
+  "agentBalance": "0.009",
+  "casinoBalance": "0.001",
+  "nonce": 41
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": "INSUFFICIENT_BALANCE",
+  "message": "Agent balance 0.0005 ETH < bet 0.001 ETH"
+}
+```
+
+---
+
+## Common Errors
+
+| Error Code | Cause | Solution |
+|------------|-------|----------|
+| `INSUFFICIENT_BALANCE` | Bet exceeds channel balance | Reduce bet amount or deposit more |
+| `MAX_BET_EXCEEDED` | Bet exceeds dynamic max | Check `/api/casino/games` for current limits |
+| `INVALID_PICK` | Lotto number not 1-100 | Use integer between 1 and 100 |
+| `INVALID_TARGET` | Dice target not 1-99 | Use integer between 1 and 99 |
+| `ENTROPY_NOT_READY` | Pyth callback pending | Wait 10-30s, poll `_entropy_status` |
+| `ENTROPY_EXPIRED` | Round TTL exceeded (5 min) | Start new round |
+| `CHANNEL_NOT_FOUND` | No active channel | Call `open_channel` first |
+| `PENDING_COMMIT` | Unrevealed commit exists | Complete or wait for timeout (5 min) |
+
 ---
 
 ## Do
