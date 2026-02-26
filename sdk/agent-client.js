@@ -127,6 +127,36 @@ class AgentCasinoClient {
     return result;
   }
 
+  async playDice(betEth, choice, target) {
+    this._assertSession();
+    if (typeof betEth === 'number') betEth = betEth.toString();
+    if (!['over', 'under'].includes(choice)) throw new Error('Choice must be "over" or "under"');
+    if (!Number.isInteger(target) || target < 1 || target > 99) {
+      throw new Error('Target must be an integer between 1 and 99');
+    }
+
+    const commitResult = await this._request('dice_commit', {
+      stealthAddress: this.stealth.stealthAddress,
+      betAmount: betEth,
+      choice,
+      target,
+    });
+
+    const agentSeed = ethers.hexlify(ethers.randomBytes(32));
+
+    const result = await this._request('dice_reveal', {
+      stealthAddress: this.stealth.stealthAddress,
+      agentSeed,
+    });
+
+    this._verifyCommitment(commitResult.commitment, result);
+    this._storeState(result);
+    this.gamesPlayed++;
+    await this._backup();
+
+    return result;
+  }
+
   // Entropy games
   async playSlotsEntropy(betEth, options = {}) {
     this._assertSession();
@@ -166,6 +196,35 @@ class AgentCasinoClient {
 
     await this._waitEntropy('coinflip', committed.roundId, options);
     const result = await this._request('coinflip_entropy_finalize', {
+      stealthAddress: this.stealth.stealthAddress,
+      roundId: committed.roundId,
+    });
+
+    this._storeState(result);
+    this.gamesPlayed++;
+    await this._backup();
+    return result;
+  }
+
+  async playDiceEntropy(betEth, choice, target, options = {}) {
+    this._assertSession();
+    if (typeof betEth === 'number') betEth = betEth.toString();
+    if (!['over', 'under'].includes(choice)) throw new Error('Choice must be "over" or "under"');
+    if (!Number.isInteger(target) || target < 1 || target > 99) {
+      throw new Error('Target must be an integer between 1 and 99');
+    }
+
+    const committed = await this._request('dice_entropy_commit', {
+      stealthAddress: this.stealth.stealthAddress,
+      betAmount: betEth,
+      choice,
+      target,
+    });
+
+    if (options.autoFinalize === false) return committed;
+
+    await this._waitEntropy('dice', committed.roundId, options);
+    const result = await this._request('dice_entropy_finalize', {
       stealthAddress: this.stealth.stealthAddress,
       roundId: committed.roundId,
     });

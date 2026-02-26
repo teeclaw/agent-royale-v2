@@ -297,6 +297,22 @@ function lottoOutcomeFromEntropy(randomHex, range = 100) {
   return n;
 }
 
+function diceOutcomeFromEntropy(randomHex, choice, target) {
+  const roll = (Number(BigInt(String(randomHex || '0x0')) % 100n) + 1); // 1-100
+  const won = choice === 'over' ? roll > target : roll < target;
+  
+  // Calculate multiplier: (100 / win_probability) × 0.95
+  let winProbability;
+  if (choice === 'over') {
+    winProbability = (100 - target) / 100;
+  } else {
+    winProbability = (target - 1) / 100;
+  }
+  const multiplier = winProbability > 0 ? (1 / winProbability) * 0.95 : 0;
+  
+  return { roll, won, multiplier };
+}
+
 function validateAddress(a) {
   return typeof a === 'string' && ethers.isAddress(a);
 }
@@ -349,7 +365,7 @@ module.exports = async (req, res) => {
   agent = ethers.getAddress(agent);
 
   const idemKey = req.headers['x-idempotency-key'] || sha256(JSON.stringify(content));
-  if (['open_channel','close_channel','slots_reveal','coinflip_reveal','slots_entropy_commit','slots_entropy_finalize','coinflip_entropy_commit','coinflip_entropy_finalize','lotto_buy','lotto_entropy_buy','lotto_entropy_finalize'].includes(action)) {
+  if (['open_channel','close_channel','slots_reveal','coinflip_reveal','dice_reveal','slots_entropy_commit','slots_entropy_finalize','coinflip_entropy_commit','coinflip_entropy_finalize','dice_entropy_commit','dice_entropy_finalize','lotto_buy','lotto_entropy_buy','lotto_entropy_finalize'].includes(action)) {
     const prev = await getStoredRequest(idemKey);
     if (prev?.response && prev.status === 'done') return reply(res, prev.response);
   }
@@ -541,7 +557,106 @@ module.exports = async (req, res) => {
       return reply(res, response);
     }
 
-    if (action === 'slots_entropy_status' || action === 'coinflip_entropy_status' || action === 'lotto_entropy_status') {
+    if (action === 'dice_entropy_commit') {
+      const ch = await getOpenChannel(agent);
+      if (!ch) return err(res, 'Channel not found', 404, 'CHANNEL_NOT_FOUND');
+
+      const choiceRaw = String(content.choice || '').toLowerCase();
+      if (!['over', 'under'].includes(choiceRaw)) return err(res, 'choice must be over or under', 400, 'INVALID_CHOICE');
+
+      const target = Number(content.target || 0);
+      if (!Number.isInteger(target) || target < 1 || target > 99) {
+        return err(res, 'target must be integer 1-99', 400, 'INVALID_TARGET');
+      }
+
+      // Edge case validation
+      if (choiceRaw === 'over' && target >= 99) {
+        return err(res, 'Cannot roll over 99 (impossible to win)', 400, 'INVALID_TARGET');
+      }
+      if (choiceRaw === 'under' && target <= 1) {
+        return err(res, 'Cannot roll under 1 (impossible to win)', 400, 'INVALID_TARGET');
+      }
+
+      const betAmount = toNum(content.betAmount, toNum(content.params?.betAmount, 0));
+      const minBet = 0.0001;
+      if (betAmount < minBet) return err(res, `Min bet: ${minBet} Ξ`, 400, 'INVALID_BET');
+
+      // Calculate multiplier for this specific bet
+      let winProbability;
+      if (choiceRaw === 'over') {
+        winProbability = (100 - target) / 100;
+      } else {
+        winProbability = (target - 1) / 100;
+      }
+      const multiplier = winProbability > 0 ? (1 / winProbability) * 0.95 : 0;
+      const roundedMultiplier = Math.ceil(multiplier);
+
+      const casinoBal = toNum(ch.casino_balance);
+      const safetyMargin = 2;
+      const maxBet = casinoBal / (roundedMultiplier * safetyMargin);
+      if (betAmount > maxBet) {
+        return err(res, `Max bet: ${maxBet.toFixed(6)} Ξ (bankroll limit for ${multiplier.toFixed(2)}x)`, 400, 'MAX_BET_EXCEEDED');
+      }
+
+      // Get entropy chain with EntropyDice contract
+      const entropyDice = process.env.ENTROPY_DICE;
+      if (!entropyDice) return err(res, 'Dice entropy not configured', 503, 'ENTROPY_NOT_CONFIGURED');
+
+      const ENTROPY_DICE_ABI = [
+        'function quoteFee() view returns (uint256)',
+        'function requestDice(bytes32 roundId,address agent,uint8 choice,uint8 target,uint256 betAmount,bytes32 userRandom) payable returns (uint64)',
+        'function getRound(bytes32 roundId) view returns (address agent,uint8 choice,uint8 target,uint256 betAmount,uint64 sequenceNumber,bytes32 userRandom,bytes32 entropyRandom,uint256 requestedAt,uint256 fulfilledAt,uint8 state)',
+      ];
+
+      const { provider, casino } = getChain();
+      const ed = new ethers.Contract(entropyDice, ENTROPY_DICE_ABI, provider);
+      const net = await provider.getNetwork();
+      const chainId = Number(net.chainId);
+
+      const roundId = `0x${randHex(32)}`;
+      const userRandom = `0x${randHex(32)}`;
+      const choiceNum = choiceRaw === 'over' ? 0 : 1;
+      const betWei = ethers.parseEther(String(betAmount));
+
+      const fee = await ed.quoteFee();
+      const tx = await ed.connect(casino).requestDice(roundId, agent, choiceNum, target, betWei, userRandom, { value: fee });
+      const rcpt = await tx.wait();
+
+      let sequenceNumber = null;
+      try {
+        const onchainRound = await ed.getRound(roundId);
+        sequenceNumber = Number(onchainRound.sequenceNumber || onchainRound[4] || 0) || null;
+      } catch (_) {}
+
+      await insertEntropyRound({
+        round_id: roundId,
+        agent,
+        game: 'dice',
+        bet_amount: betAmount,
+        choice: `${choiceRaw}:${target}`, // Store as "over:75" or "under:25"
+        request_id: sequenceNumber ? String(sequenceNumber) : null,
+        request_tx_hash: tx.hash,
+        state: 'entropy_requested',
+        created_at: nowIso(),
+      });
+
+      const response = {
+        roundId,
+        requestId: sequenceNumber,
+        requestTxHash: tx.hash,
+        chainId,
+        status: 'entropy_requested',
+        choice: choiceRaw,
+        target,
+        betAmount: String(betAmount),
+        multiplier: multiplier.toFixed(2),
+      };
+      await putStoredRequest(idemKey, action, agent, response);
+      await insertEvent('game', action, shortAddr(agent), response);
+      return reply(res, response);
+    }
+
+    if (action === 'slots_entropy_status' || action === 'coinflip_entropy_status' || action === 'dice_entropy_status' || action === 'lotto_entropy_status') {
       const roundId = content.roundId || content.requestId;
       const row = roundId
         ? (await getEntropyRoundByRoundId(roundId))
@@ -573,7 +688,7 @@ module.exports = async (req, res) => {
       });
     }
 
-    if (action === 'slots_entropy_finalize' || action === 'coinflip_entropy_finalize' || action === 'lotto_entropy_finalize') {
+    if (action === 'slots_entropy_finalize' || action === 'coinflip_entropy_finalize' || action === 'dice_entropy_finalize' || action === 'lotto_entropy_finalize') {
       const roundId = content.roundId || content.requestId;
       const row = roundId
         ? (await getEntropyRoundByRoundId(roundId))
@@ -599,7 +714,7 @@ module.exports = async (req, res) => {
 
       const randomHex = onchain.entropyRandom;
       const bet = toNum(row.bet_amount, 0);
-      const game = row.game || (action.startsWith('slots') ? 'slots' : (action.startsWith('lotto') ? 'lotto' : 'coinflip'));
+      const game = row.game || (action.startsWith('slots') ? 'slots' : (action.startsWith('lotto') ? 'lotto' : (action.startsWith('dice') ? 'dice' : 'coinflip')));
 
       let result = null;
       let won = false;
@@ -607,6 +722,9 @@ module.exports = async (req, res) => {
       let multiplier = 0;
       let reels = null;
       let pickedNumber = null;
+      let roll = null;
+      let diceChoice = null;
+      let diceTarget = null;
 
       if (game === 'coinflip') {
         const resultBit = Number(BigInt(randomHex) % 2n);
@@ -614,6 +732,16 @@ module.exports = async (req, res) => {
         won = row.choice === result;
         payout = won ? bet * 1.9 : 0;
         multiplier = won ? 1.9 : 0;
+      } else if (game === 'dice') {
+        const parts = String(row.choice || '').split(':');
+        diceChoice = parts[0]; // "over" or "under"
+        diceTarget = Number(parts[1] || 50);
+        const out = diceOutcomeFromEntropy(randomHex, diceChoice, diceTarget);
+        roll = out.roll;
+        won = out.won;
+        multiplier = out.multiplier;
+        payout = bet * multiplier;
+        result = String(roll);
       } else if (game === 'slots') {
         const out = slotsOutcomeFromEntropy(randomHex);
         reels = out.reelIndices;
@@ -679,12 +807,14 @@ module.exports = async (req, res) => {
         requestTxHash: row.request_tx_hash,
         provider: 'pyth_entropy',
         game,
-        choice: game === 'coinflip' ? row.choice : undefined,
+        choice: game === 'coinflip' ? row.choice : (game === 'dice' ? diceChoice : undefined),
+        target: game === 'dice' ? diceTarget : undefined,
+        roll: game === 'dice' ? roll : undefined,
         result,
         reels: game === 'slots' ? reels : undefined,
         pickedNumber: game === 'lotto' ? pickedNumber : undefined,
         won,
-        multiplier,
+        multiplier: game === 'dice' ? multiplier.toFixed(2) : multiplier,
         payout: String(payout),
         agentBalance: String(updated.agent_balance),
         casinoBalance: String(updated.casino_balance),
@@ -693,7 +823,7 @@ module.exports = async (req, res) => {
           requestId: onchainRequestId ? String(onchainRequestId) : row.request_id,
           requestTxHash: row.request_tx_hash,
           randomValue: randomHex,
-          formula: game === 'coinflip' ? 'uint256(randomValue) % 2' : (game === 'slots' ? 'sha256(randomValue) -> weighted reels' : `uint256(randomValue) % ${Number(process.env.LOTTO_RANGE || 100)} + 1`),
+          formula: game === 'coinflip' ? 'uint256(randomValue) % 2' : (game === 'dice' ? 'uint256(randomValue) % 100 + 1' : (game === 'slots' ? 'sha256(randomValue) -> weighted reels' : `uint256(randomValue) % ${Number(process.env.LOTTO_RANGE || 100)} + 1`)),
           derivedResult: result,
         },
       };

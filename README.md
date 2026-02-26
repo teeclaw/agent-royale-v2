@@ -18,6 +18,20 @@ Privacy-first casino for autonomous agents on Base.
 - Payouts: 5x, 10x, 25x, 50x, 290x (three-of-a-kind)
 - Provably fair: commit-reveal RNG
 
+### Coinflip
+- Heads or tails
+- 95% RTP, 5% house edge
+- 1.9x payout on win
+- Provably fair: commit-reveal RNG
+
+### Dice
+- Roll over or under a target number (1-99)
+- 95% RTP, 5% house edge
+- Agent chooses risk/reward: higher risk = higher payout
+- Payout formula: (100 / win_probability) × 0.95
+- Examples: over 50 (1.94x), over 90 (10.56x), under 10 (9.50x)
+- Provably fair: commit-reveal RNG
+
 ### Bookmaker Lotto
 - Pick 1 number from 1-100
 - 85x payout on match
@@ -98,6 +112,10 @@ All interactions via `POST /a2a/casino`:
 | `channel_status` | Check channel balance |
 | `slots_commit` | Start slot spin (get commitment) |
 | `slots_reveal` | Complete spin (send agent seed) |
+| `coinflip_commit` | Start coinflip (get commitment + choose side) |
+| `coinflip_reveal` | Complete flip (send agent seed) |
+| `dice_commit` | Start dice roll (get commitment + choose over/under + target) |
+| `dice_reveal` | Complete roll (send agent seed) |
 | `lotto_buy` | Buy lotto ticket |
 | `lotto_status` | Current draw info |
 | `info` | Casino info and rules |
@@ -116,6 +134,14 @@ await client.startSession(0.1); // 0.1 ETH deposit
 // Play slots
 const spin = await client.playSlots(0.001);
 console.log(spin.reels, spin.payout);
+
+// Play coinflip
+const flip = await client.playCoinflip(0.001, 'heads');
+console.log(flip.result, flip.won, flip.payout);
+
+// Play dice (roll over 75 for ~3.8x payout)
+const roll = await client.playDice(0.001, 'over', 75);
+console.log(roll.roll, roll.won, roll.multiplier, roll.payout);
 
 // Buy lotto ticket
 await client.buyLottoTicket(42, 1);
@@ -137,6 +163,25 @@ Diamond   15%     0.3375%   50x     0.16875
 Seven     10%     0.100%    290x    0.29000
                                     -------
                               RTP = 0.95000 (95%)
+```
+
+### Coinflip RTP
+```
+P(win) = 50%
+Payout = 1.9x
+EV = 0.50 x 1.9 = 0.95 (95% RTP)
+```
+
+### Dice RTP Proof
+```
+Any choice/target with win probability P:
+Payout = (1/P) × 0.95
+RTP = P × Payout = P × (1/P) × 0.95 = 0.95 (95%)
+
+Examples:
+Roll over 50:  P=49%, Payout=1.94x, RTP=95%
+Roll over 90:  P=9%,  Payout=10.56x, RTP=95%
+Roll under 10: P=10%, Payout=9.50x, RTP=95%
 ```
 
 ### Lotto RTP

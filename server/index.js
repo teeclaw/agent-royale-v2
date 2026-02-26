@@ -35,6 +35,7 @@ const fs = require('fs');
 const SlotsGame = require('./games/slots');
 const LottoGame = require('./games/lotto');
 const CoinflipGame = require('./games/coinflip');
+const DiceGame = require('./games/dice');
 
 // ─── Config ──────────────────────────────────────────────
 
@@ -99,6 +100,7 @@ async function main() {
   engine.registerGame(new SlotsGame());
   engine.registerGame(new LottoGame());
   engine.registerGame(new CoinflipGame());
+  engine.registerGame(new DiceGame());
 
   // Services
   const relay = new RelayService(casinoWallet, relayContract || channelContract);

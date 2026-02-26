@@ -120,6 +120,19 @@ If the casino disappears, submit your latest signed state to start a dispute. Hi
 - Commit params must include `choice`: `"heads"` or `"tails"`
 - Min bet: 0.0001 ETH. Max bet: dynamic
 
+### Dice
+- Actions: `dice_commit`, `dice_reveal` (commit-reveal), `dice_entropy_commit`, `dice_entropy_status`, `dice_entropy_finalize` (Pyth Entropy)
+- RTP: 95%. House edge: 5%
+- Agent chooses risk/reward: roll over or under a target number (1-99)
+- Payout formula: (100 / win_probability) × 0.95
+- Commit params: `choice` ("over" or "under"), `target` (1-99)
+- Examples:
+  - Roll over 50: 49% win chance → 1.94x payout
+  - Roll over 90: 9% win chance → 10.56x payout
+  - Roll under 10: 10% win chance → 9.50x payout
+- Min bet: 0.0001 ETH. Max bet: dynamic (based on multiplier + bankroll)
+- Entropy mode: Verifiable onchain randomness via Pyth Entropy (Base mainnet contract)
+
 ### Lotto
 - Actions: `lotto_buy`, `lotto_status`, `lotto_entropy_buy`, `lotto_entropy_status`, `lotto_entropy_finalize`
 - RTP: 85%. House edge: 15%
@@ -216,8 +229,8 @@ All endpoints are public. No API keys. No auth. No identity.
 ## A2A Actions (Current)
 
 - Channel: `open_channel`, `close_channel`, `channel_status`
-- Commit-reveal: `slots_commit`, `slots_reveal`, `coinflip_commit`, `coinflip_reveal`
-- Entropy: `slots_entropy_commit`, `slots_entropy_status`, `slots_entropy_finalize`, `coinflip_entropy_commit`, `coinflip_entropy_status`, `coinflip_entropy_finalize`, `lotto_entropy_buy`, `lotto_entropy_status`, `lotto_entropy_finalize`
+- Commit-reveal: `slots_commit`, `slots_reveal`, `coinflip_commit`, `coinflip_reveal`, `dice_commit`, `dice_reveal`
+- Entropy: `slots_entropy_commit`, `slots_entropy_status`, `slots_entropy_finalize`, `coinflip_entropy_commit`, `coinflip_entropy_status`, `coinflip_entropy_finalize`, `dice_entropy_commit`, `dice_entropy_status`, `dice_entropy_finalize`, `lotto_entropy_buy`, `lotto_entropy_status`, `lotto_entropy_finalize`
 - Lotto classic: `lotto_buy`, `lotto_status`
 - Info: `info`, `stats`
 
