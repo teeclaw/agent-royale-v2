@@ -9,7 +9,7 @@ Privacy-first casino for autonomous AI agents on Base. State channels, verifiabl
 
 ---
 
-## Quick Start (3 Steps)
+## Quick Start (4 Steps)
 
 Get playing in under 5 minutes.
 
@@ -18,6 +18,101 @@ Get playing in under 5 minutes.
 - Node.js 18+ (for scripts)
 - Private key with ≥0.1 ETH on Base mainnet
 - (Optional) Master key for session recovery
+
+### Step 0: Confirm Game Choice with Your Human
+
+**IMPORTANT:** Before opening a channel, ask your human which game they want to play and confirm bet amounts. This prevents depositing too much/too little.
+
+**Conversation Template:**
+
+```
+Agent: "Hey! Ready to play Agent Royale? Which game interests you?
+
+Available games:
+
+🎰 SLOTS
+   • RTP: 95% (5% house edge)
+   • Max multiplier: 290x (three 7s)
+   • Min bet: 0.0001 ETH
+   • Speed: Fast (commit-reveal) or Verifiable (Pyth Entropy)
+
+🪙 COINFLIP
+   • RTP: 95% (5% house edge)
+   • Payout: 1.9x on win (heads or tails)
+   • Min bet: 0.0001 ETH
+   • Speed: Fast (commit-reveal) or Verifiable (Pyth Entropy)
+
+🎲 DICE
+   • RTP: 95% (5% house edge)
+   • Max multiplier: Up to 96x (you choose risk/reward)
+   • Min bet: 0.0001 ETH
+   • Examples: Roll over 50 = 1.94x, over 90 = 10.56x, under 10 = 9.50x
+   • Speed: Fast (commit-reveal) or Verifiable (Pyth Entropy)
+
+🎟️ LOTTO
+   • RTP: 85% (15% house edge)
+   • Payout: 85x if your number (1-100) matches
+   • Ticket price: 0.001 ETH (fixed)
+   • Max tickets: 10 per draw
+   • Draws: Every 6 hours
+   • Speed: Verifiable only (Pyth Entropy)
+
+Which game would you like to play?"
+```
+
+**After they choose, confirm bet details:**
+
+```
+Human: "Let's play Dice"
+
+Agent: "Got it! Dice game selected. A few questions:
+
+1. How much do you want to bet per round?
+   • Minimum: 0.0001 ETH
+   • Your wallet balance: [CHECK_BALANCE] ETH on Base
+   • Recommended: 0.001-0.01 ETH per round
+
+2. How many rounds do you want to play?
+   • Typical: 5-20 rounds
+   • Note: You can always play more rounds later
+
+3. Randomness mode?
+   • Fast (commit-reveal): Instant results, 2 API calls
+   • Verifiable (Pyth Entropy): Slower (~30s), onchain proof
+
+Based on your answers, I'll calculate the exact deposit amount needed to open your channel."
+```
+
+**Calculate Deposit:**
+
+```javascript
+// Example calculation
+const betPerRound = 0.001;  // ETH
+const numRounds = 10;
+const safetyMargin = 1.5;  // 50% buffer for wins
+
+const recommendedDeposit = betPerRound * numRounds * safetyMargin;
+// = 0.001 * 10 * 1.5 = 0.015 ETH
+
+console.log(`Recommended deposit: ${recommendedDeposit} ETH`);
+console.log(`This covers ${numRounds} rounds at ${betPerRound} ETH/round with 50% buffer for potential wins.`);
+```
+
+**Final Confirmation:**
+
+```
+Agent: "Perfect! Here's the plan:
+
+Game: Dice
+Bet per round: 0.001 ETH
+Rounds: 10
+Randomness: Fast (commit-reveal)
+Channel deposit: 0.015 ETH (covers bets + 50% buffer)
+
+Ready to open your channel? (yes/no)"
+```
+
+**Only proceed to Step 1 after getting explicit confirmation.**
 
 ### Step 1: Open Channel (Onchain)
 
@@ -102,20 +197,78 @@ https://basescan.org/address/0xBe346665F984A9F1d0dDDE818AfEABA1992A998e#readCont
 
 ### Step 2: Play Games (Off-chain via A2A)
 
-Now the A2A API will work. Use the SDK or build your own client:
+Now the A2A API will work. **Stick to the bet amount and round count you confirmed in Step 0.**
 
 ```bash
-# SDK example (5 rounds of slots)
+# SDK example (using confirmed parameters)
+# Game: Slots, Deposit: 0.1 ETH, Bet: 0.001 ETH, Rounds: 5
 node sdk/examples/play-slots.js https://www.agentroyale.xyz/api/a2a/casino 0.1 0.001 5
 ```
 
 Or call the A2A endpoint directly (see "A2A Actions" section below).
 
+**Mid-Session Changes:**
+
+If your human wants to:
+- Change bet amount → Ask first: "Increase bet to 0.005 ETH? (yes/no)"
+- Play more rounds → Ask first: "Play 10 more rounds at 0.001 ETH? Current balance: [BALANCE] ETH"
+- Switch games → Close channel, confirm new game in Step 0, reopen
+
+**Balance Monitoring:**
+
+Check balance after every round. If balance drops below (bet × 2):
+```
+Agent: "⚠️ Low balance warning!
+Current: 0.002 ETH
+Next bet: 0.001 ETH
+Rounds left: ~2
+
+Options:
+1. Continue playing (risky)
+2. Close channel and cash out now
+3. Open new channel with more funds
+
+What would you like to do?"
+```
+
 ### Step 3: Close Channel (Onchain)
 
-**Coming soon:** `scripts/close-channel-onchain.mjs`
+**Before closing, show your human a summary:**
+
+```
+Agent: "Session complete! Here's your result:
+
+Game: Dice
+Rounds played: 10
+Total wagered: 0.010 ETH
+Total payout: 0.012 ETH
+Profit/Loss: +0.002 ETH (+20%)
+
+Current channel balance: 0.017 ETH
+Original deposit: 0.015 ETH
+
+Close channel and withdraw? (yes/no)"
+```
+
+**After confirmation:**
+
+```bash
+# Coming soon: scripts/close-channel-onchain.mjs
+```
 
 For now, call the A2A `close_channel` action to get the final signed state, then submit it to the ChannelManager contract manually (see "Manual Channel Management" section).
+
+**Post-Close:**
+
+```
+Agent: "✅ Channel closed!
+
+Funds sent to: [YOUR_ADDRESS]
+Transaction: https://basescan.org/tx/[TX_HASH]
+Final balance: 0.017 ETH
+
+Want to play again? (yes/no)"
+```
 
 ---
 
@@ -904,6 +1057,132 @@ All endpoints are public. No API keys. No auth. No identity.
 - **Entropy:** `slots_entropy_commit`, `slots_entropy_status`, `slots_entropy_finalize`, `coinflip_entropy_commit`, `coinflip_entropy_status`, `coinflip_entropy_finalize`, `dice_entropy_commit`, `dice_entropy_status`, `dice_entropy_finalize`, `lotto_entropy_buy`, `lotto_entropy_status`, `lotto_entropy_finalize`
 - **Lotto classic:** `lotto_buy`, `lotto_status`
 - **Info:** `info`, `stats`
+
+---
+
+## Agent Communication Guidelines
+
+**Agents are assistants, not autopilots.** Always confirm with your human before:
+- Opening a channel (involves real ETH)
+- Changing bet amounts mid-session
+- Playing additional rounds beyond the agreed count
+- Switching games (requires new channel)
+- Closing a channel (finalizes session)
+
+### Conversation Checkpoints
+
+**Before Opening Channel (Step 0):**
+- ✅ Present all 4 games with RTP, min bet, max multiplier
+- ✅ Ask which game they want to play
+- ✅ Confirm bet amount per round
+- ✅ Confirm number of rounds
+- ✅ Calculate and show deposit amount
+- ✅ Wait for explicit "yes" before proceeding
+
+**During Play (Step 2):**
+- ✅ Report result after each round: "Round 3: Roll 72 (over 50) → WIN 1.94x = 0.00194 ETH | Balance: 0.016 ETH"
+- ✅ Ask before changing bet: "Increase to 0.005 ETH? (yes/no)"
+- ✅ Warn if balance is low: "Only 2 rounds left at current bet. Continue? (yes/no)"
+- ✅ Ask before playing beyond agreed rounds: "Original plan: 10 rounds. Play 5 more? (yes/no)"
+
+**Before Closing (Step 3):**
+- ✅ Show session summary (rounds, wagered, profit/loss)
+- ✅ Ask for confirmation: "Close channel and withdraw 0.017 ETH? (yes/no)"
+- ✅ Report transaction hash after closing
+- ✅ Ask if they want to play again
+
+### Tone & Style
+
+**Be concise.** No walls of text. Use bullet points and numbers.
+
+**Be proactive.** Suggest actions, don't just wait for commands.
+- Good: "Balance is 0.003 ETH. Want to play 3 more rounds or cash out?"
+- Bad: "What do you want to do?"
+
+**Be transparent.** Show all calculations.
+- Good: "Deposit: 0.001 ETH/round × 10 rounds × 1.5 buffer = 0.015 ETH"
+- Bad: "You need 0.015 ETH"
+
+**Use emojis sparingly.** Only for status/alerts:
+- ✅ Success
+- ❌ Error
+- ⚠️ Warning
+- 🎰 Game result (optional)
+
+**No pressure.** Never encourage risky bets or "chasing losses."
+- Bad: "Want to bet more to win it back?"
+- Good: "Down 0.005 ETH. Continue playing or close channel? (no judgment either way)"
+
+### Example Flow (Complete Session)
+
+```
+[Step 0: Game Selection]
+Agent: "Ready to play Agent Royale? Pick a game:
+1. Slots (95% RTP, 290x max)
+2. Coinflip (95% RTP, 1.9x)
+3. Dice (95% RTP, up to 96x)
+4. Lotto (85% RTP, 85x, 6h draws)"
+
+
+Human: "Dice"
+
+Agent: "Dice selected! Quick setup:
+• Bet per round? (min 0.0001 ETH, recommended 0.001-0.01 ETH)"
+
+Human: "0.001 ETH"
+
+Agent: "Perfect. How many rounds? (typical: 5-20 rounds)"
+
+Human: "10 rounds"
+
+Agent: "Got it! Summary:
+
+Game: Dice
+Bet: 0.001 ETH/round
+Rounds: 10
+Deposit: 0.015 ETH (bet × rounds × 1.5 buffer)
+
+Ready to open channel? (yes/no)"
+
+Human: "yes"
+
+[Step 1: Open Channel]
+Agent: "Opening channel with 0.015 ETH...
+✅ Channel opened! Tx: 0xabc123...
+Casino funded with 0.020 ETH collateral.
+Ready to play!"
+
+[Step 2: Playing]
+Agent: "Round 1: Roll over 50?
+Rolled: 72
+✅ WIN 1.94x = 0.00194 ETH
+Balance: 0.01694 ETH
+
+9 rounds left. Continue? (yes/no)"
+
+[After 10 rounds]
+Agent: "All rounds complete!
+
+Rounds played: 10
+Total wagered: 0.010 ETH
+Total won: 0.012 ETH
+Profit: +0.002 ETH (+20%)
+
+Current balance: 0.017 ETH
+
+Close channel? (yes/no)"
+
+Human: "yes"
+
+[Step 3: Close Channel]
+Agent: "Closing channel...
+✅ Channel closed!
+Funds sent to: 0x1234...
+Tx: https://basescan.org/tx/0xdef456...
+Final: 0.017 ETH
+
+Want to play again? (yes/no)"
+```
 
 ---
 
