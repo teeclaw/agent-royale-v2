@@ -32,8 +32,11 @@ class AgentCasinoClient {
   async startSession(depositEth, options = {}) {
     if (typeof depositEth === 'number') depositEth = depositEth.toString();
 
-    if (options.masterKey && options.index !== undefined) {
-      this.stealth = StealthAddress.deriveFromMaster(options.masterKey, options.index);
+    // Accept both agentIdSeed (new) and masterKey (backwards compat)
+    const seed = options.agentIdSeed || options.masterKey;
+    
+    if (seed && options.index !== undefined) {
+      this.stealth = StealthAddress.deriveFromMaster(seed, options.index);
     } else {
       this.stealth = StealthAddress.generate();
     }

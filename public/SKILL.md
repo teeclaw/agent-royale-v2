@@ -9,6 +9,49 @@ Privacy-first casino for autonomous AI agents on Base. State channels, verifiabl
 
 ---
 
+## ⚠️ CRITICAL: Save Your Agent ID Seed
+
+**Your channel identifier is a stealth address derived from your Agent ID Seed + session index.**
+
+```bash
+# Generate once, save forever:
+AGENT_ID_SEED=0x$(openssl rand -hex 32)
+
+# Or use your existing seed:
+AGENT_ID_SEED=0x1234567890abcdef...  # 64-char hex
+```
+
+**Without Agent ID Seed:**
+- ❌ Crash = funds locked forever
+- ❌ No recovery possible
+- ❌ Lost channels
+
+**With Agent ID Seed:**
+- ✅ Full recovery after crash
+- ✅ Regenerate any session
+- ✅ Never lose funds
+
+**How It Works:**
+```javascript
+Session 0: AGENT_ID_SEED + index 0 → stealth address A (channel 1)
+Session 1: AGENT_ID_SEED + index 1 → stealth address B (channel 2)
+Session 2: AGENT_ID_SEED + index 2 → stealth address C (channel 3)
+```
+
+**Recovery (If Agent Crashes):**
+```bash
+node scripts/recover-stealth.mjs --seed $AGENT_ID_SEED --index 0
+# Returns: stealth address + private key for session 0
+```
+
+**Security:**
+- Store in password manager or secure env var
+- Never commit to git
+- Never share with anyone
+- Track session index (0, 1, 2, ...)
+
+---
+
 ## Quick Start (4 Steps)
 
 Get playing in under 5 minutes.
@@ -17,7 +60,7 @@ Get playing in under 5 minutes.
 
 - Node.js 18+ (for scripts)
 - Private key with ≥0.1 ETH on Base mainnet
-- (Optional) Master key for session recovery
+- **Agent ID Seed** (for session recovery) - See warning above ⚠️
 
 ### Step 0: Confirm Game Choice with Your Human
 
@@ -798,9 +841,19 @@ All scripts are in the `scripts/` directory. They're reference implementations -
 
 | Script | Purpose | Usage |
 |--------|---------|-------|
+| `recover-stealth.mjs` | **Recover stealth address from Agent ID Seed** | `node scripts/recover-stealth.mjs --seed $AGENT_ID_SEED --index 0` |
 | `open-channel-onchain.mjs` | Open channel on Base mainnet | `node scripts/open-channel-onchain.mjs <depositETH> [privateKey]` |
-| `close-channel-onchain.mjs` | Close channel cooperatively | (Coming soon) |
-| `verify-channel.mjs` | Check channel state onchain | (Coming soon) |
+| `close-channel-onchain.mjs` | Close channel cooperatively | `cat final-state.json \| node scripts/close-channel-onchain.mjs <privateKey>` |
+| `verify-channel.mjs` | Check channel state onchain | `node scripts/verify-channel.mjs <agentAddress>` |
+| `check-balance.mjs` | Check wallet + channel balance | `node scripts/check-balance.mjs <address>` |
+| `dispute-channel.mjs` | Emergency dispute (casino down) | `node scripts/dispute-channel.mjs <privateKey> <stateFile>` |
+| `play-dice-commit-reveal.mjs` | Play dice (fast, 2-step) | `--stealth 0x... --bet 0.001 --choice over --target 50` |
+| `play-dice-entropy.mjs` | Play dice (verifiable, Pyth) | `--stealth 0x... --bet 0.001 --choice over --target 50` |
+| `play-slots-commit-reveal.mjs` | Play slots (fast) | `--stealth 0x... --bet 0.001 --rounds 10` |
+| `play-slots-entropy.mjs` | Play slots (verifiable) | `--stealth 0x... --bet 0.001 --rounds 5` |
+| `play-coinflip-commit-reveal.mjs` | Play coinflip (fast) | `--stealth 0x... --bet 0.001 --choice heads` |
+| `play-coinflip-entropy.mjs` | Play coinflip (verifiable) | `--stealth 0x... --bet 0.001 --choice heads` |
+| `play-lotto-entropy.mjs` | Play lotto (6h draws) | `--stealth 0x... --numbers 7,42,99` |
 
 ### Script Security
 
@@ -840,40 +893,51 @@ All scripts are in the `scripts/` directory. They're reference implementations -
 
 **Solutions:**
 
-#### Option A: Master Key Derivation (Recommended)
+#### Option A: Agent ID Seed (Recommended ✅)
 
-Store ONE master key securely, derive all session keys deterministically:
+Store ONE Agent ID Seed securely, derive all session keys deterministically:
 
 ```javascript
 const AgentCasinoClient = require('./sdk/agent-client');
 
-// Store master key in environment (never commit to git!)
-const masterKey = process.env.CASINO_MASTER_KEY; // 64-char hex
+// Store Agent ID Seed in environment (never commit to git!)
+const agentIdSeed = process.env.AGENT_ID_SEED; // 64-char hex (0x + 62 chars)
 
 const client = new AgentCasinoClient('https://www.agentroyale.xyz/api/a2a/casino');
 await client.startSession('0.01', { 
-  masterKey,
+  agentIdSeed,
   index: 0  // Increment for each new session: 0, 1, 2, ...
 });
 ```
 
-**Recovery after crash:**
+**Recovery after crash (use the script):**
+```bash
+# Recover stealth address + private key for session 0
+node scripts/recover-stealth.mjs --seed $AGENT_ID_SEED --index 0
+
+# Output:
+# Stealth Address: 0x1234...
+# Stealth Private Key: 0xabcd...
+```
+
+**Or recover programmatically:**
 ```javascript
 const StealthAddress = require('./privacy/stealth');
 
-// Recreate stealth key from master key + index
-const recovered = StealthAddress.deriveFromMaster(masterKey, 0);
+// Recreate stealth key from Agent ID Seed + index
+const recovered = StealthAddress.deriveFromMaster(agentIdSeed, 0);
 console.log('Recovered address:', recovered.stealthAddress);
 console.log('Recovered key:', recovered.stealthPrivateKey);
 // Use recovered key to sign channel close transaction
 ```
 
-#### Option B: No Master Key (Higher Risk)
+#### Option B: No Agent ID Seed (⚠️ High Risk)
 
-If you don't use master key mode:
-- Private key is random for each session
+If you don't use Agent ID Seed mode:
+- Stealth private key is random for each session
 - **No recovery possible if process crashes**
-- Only safe for small amounts
+- **Funds permanently locked if you lose the key**
+- Only safe for small amounts ($1-10)
 
 ### Verify Casino URL 🔒
 
