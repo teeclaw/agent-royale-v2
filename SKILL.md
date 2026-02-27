@@ -141,6 +141,11 @@ console.log(`Recommended deposit: ${deposit} ETH`);
 console.log(`Covers ${numRounds} rounds at ${betPerRound} ETH/round + 50% buffer`);
 ```
 
+**Deposit Limits:**
+- **Minimum:** 0.001 ETH (enforced by ChannelManager contract)
+- **Recommended minimum:** 0.01 ETH (covers gas + ~10 rounds comfortably)
+- **Maximum:** No contract-level limit (practical limit is your wallet balance)
+
 **Final confirmation:**
 ```
 Agent: "Perfect! Here's the plan:
