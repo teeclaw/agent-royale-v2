@@ -6,3 +6,12 @@ backups/
 casino-states/
 .env
 .vercel
+
+# Build artifacts
+out/
+foundry.lock
+
+# Temp files
+sdk-example-clean.js
+sdk-snippet.html
+test/*.tree

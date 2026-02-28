@@ -1,0 +1,5 @@
+
+Human: "Dice"
+
+Agent: "Dice selected! Quick setup:
+• Bet per round? (min 0.0001 ETH, recommended 0.001-0.01 ETH)"
