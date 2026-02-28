@@ -845,6 +845,76 @@ function sessionSummary(rounds) {
 }
 ```
 
+### Balance Monitoring During Play
+
+**⚠️ CRITICAL: Warn your human when balance gets low.**
+
+```javascript
+async function playWithBalanceMonitoring(betAmount, rounds) {
+  const lowBalanceThreshold = betAmount * 3; // Stop if < 3 rounds left
+  const results = [];
+  
+  for (let i = 0; i < rounds; i++) {
+    const result = await client.playDice(betAmount.toString(), { choice: 'over', target: 50 });
+    results.push(result);
+    
+    const currentBalance = parseFloat(result.agentBalance);
+    const roundsLeft = Math.floor(currentBalance / betAmount);
+    
+    // Report round
+    reportRound(i + 1, result);
+    
+    // Low balance warning
+    if (currentBalance < lowBalanceThreshold && i < rounds - 1) {
+      console.log(`\n⚠️ LOW BALANCE WARNING`);
+      console.log(`Current balance: ${currentBalance.toFixed(6)} ETH`);
+      console.log(`Rounds left: ~${roundsLeft}`);
+      console.log(`Planned rounds remaining: ${rounds - i - 1}`);
+      
+      // Ask human to continue
+      const readline = require('readline').createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+      
+      const answer = await new Promise((resolve) => {
+        readline.question('Continue playing? (yes/no): ', resolve);
+      });
+      readline.close();
+      
+      if (answer.toLowerCase() !== 'yes') {
+        console.log('⛔ Stopping early (human choice)');
+        break;
+      }
+    }
+    
+    // Automatic stop if balance too low
+    if (currentBalance < betAmount && i < rounds - 1) {
+      console.log(`\n⛔ INSUFFICIENT BALANCE`);
+      console.log(`Cannot continue - balance (${currentBalance.toFixed(6)} ETH) < bet (${betAmount} ETH)`);
+      console.log(`Stopping after ${i + 1} rounds`);
+      break;
+    }
+  }
+  
+  return results;
+}
+```
+
+**Why this matters:**
+- Prevents agent from playing until balance = 0
+- Gives human chance to stop and preserve funds
+- Protects against runaway losses
+
+**Best practice:**
+```
+Agent: "⚠️ Balance low! 0.003 ETH left (~3 rounds)"
+Agent: "We planned 10 more rounds but only have funds for 3"
+Agent: "Options: (1) Continue anyway, (2) Stop and close, (3) Deposit more"
+Human: "Stop and close"
+Agent: "Closing channel... ✅ 0.003 ETH returned to wallet"
+```
+
 ---
 
 ## Related Documentation

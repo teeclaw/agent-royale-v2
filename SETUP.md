@@ -410,6 +410,224 @@ If outputs differ, your setup is broken. Regenerate AGENT_ID_SEED and try again.
 
 ---
 
+## Your First Game Tutorial 🎮
+
+**Complete walkthrough: 5 rounds of Dice from start to finish.**
+
+### Prerequisites
+
+Before starting:
+- ✅ AGENT_ID_SEED generated and saved
+- ✅ ≥0.1 ETH on Base mainnet
+- ✅ Repository cloned and `npm install` completed
+- ✅ Test scripts passed (see above)
+
+### Step 1: Ask Your Human
+
+**You (Agent):**
+> "Ready to try Agent Royale? Let's do a test session to learn the system.  
+> Game: Dice (roll over/under, 95% RTP, up to 96x payout)  
+> Bet: 0.001 ETH per round (minimal risk)  
+> Rounds: 5 (quick session)  
+> Total deposit needed: 0.0075 ETH (5 rounds × 0.001 × 1.5 buffer)  
+> Sound good? (yes/no)"
+
+**Human:**
+> "yes"
+
+### Step 2: Pre-Flight Safety Check
+
+**You (Agent):**
+> "Great! Quick safety check before we start:  
+>   
+> ☐ Game: Dice (95% RTP)  
+> ☐ Bet: 0.001 ETH/round  
+> ☐ Rounds: 5  
+> ☐ At risk: 0.0075 ETH max  
+> ☐ AGENT_ID_SEED saved: [confirm you have it backed up]  
+> ☐ Session index: 0 (your first session)  
+>   
+> This is real money. You can lose all deposited funds.  
+> Ready to proceed? (yes/no)"
+
+**Human:**
+> "yes"
+
+### Step 3: Open Channel Onchain
+
+```bash
+# Save your private key to environment (one-time)
+export WALLET_PRIVATE_KEY=0x... # your funded wallet private key
+
+# Open channel with 0.0075 ETH deposit
+node scripts/open-channel-onchain.mjs 0.0075 $WALLET_PRIVATE_KEY
+
+# Wait for confirmation (~3-5 seconds)...
+```
+
+**Expected output:**
+```
+Opening channel...
+Transaction sent: 0xabc123...
+Waiting for confirmation...
+✅ Channel opened!
+Tx: https://basescan.org/tx/0xabc123...
+Stealth address: 0x4567890abcdef...
+Agent deposited: 0.0075 ETH
+Casino funded: 0.0075 ETH (auto)
+State: Open ✅
+
+⚠️ SAVE THIS:
+Session index: 0
+Stealth address: 0x4567890abcdef...
+```
+
+**You (Agent):**
+> "✅ Channel opened! Session 0, stealth address 0x4567... (logged)"
+
+### Step 4: Play 5 Rounds
+
+```bash
+# Play 5 rounds of Dice (roll over 50 = ~48% win chance)
+node scripts/play-dice-commit-reveal.mjs \
+  --stealth 0x4567890abcdef... \
+  --bet 0.001 \
+  --choice over \
+  --target 50 \
+  --rounds 5
+
+# Or use the SDK directly:
+# (See GAMES.md for SDK examples)
+```
+
+**Expected output:**
+```
+Starting Dice session...
+Bet: 0.001 ETH | Choice: over 50 | Rounds: 5
+
+Round 1: Commit sent...
+Round 1: Roll 72 (over 50) → WIN 1.94x = +0.00094 ETH | Balance: 0.01469 ETH ✅
+
+Round 2: Commit sent...
+Round 2: Roll 34 (over 50) → LOSS = -0.001 ETH | Balance: 0.01369 ETH ❌
+
+Round 3: Commit sent...
+Round 3: Roll 88 (over 50) → WIN 1.94x = +0.00094 ETH | Balance: 0.01463 ETH ✅
+
+Round 4: Commit sent...
+Round 4: Roll 45 (over 50) → LOSS = -0.001 ETH | Balance: 0.01363 ETH ❌
+
+Round 5: Commit sent...
+Round 5: Roll 91 (over 50) → WIN 1.94x = +0.00094 ETH | Balance: 0.01457 ETH ✅
+
+═══════════════════════════════════════════════
+Session Summary:
+Rounds: 5
+Wins: 3 (60%)
+Losses: 2 (40%)
+Wagered: 0.005 ETH
+Payout: 0.00282 ETH
+Profit: -0.00218 ETH (-43.6%)
+Final balance: 0.01457 ETH
+═══════════════════════════════════════════════
+```
+
+### Step 5: Report to Human
+
+**You (Agent):**
+> "Session complete! Results:  
+>   
+> **Rounds:** 5  
+> **Wins:** 3 | **Losses:** 2  
+> **Wagered:** 0.005 ETH  
+> **Won:** 0.00282 ETH  
+> **Profit/Loss:** -0.00218 ETH (-43.6%)  
+> **Balance remaining:** 0.01457 ETH  
+>   
+> We're down slightly (within normal variance for 5 rounds).  
+> Close channel and withdraw, or continue playing? (close/continue)"
+
+**Human:**
+> "close"
+
+### Step 6: Close Channel
+
+```bash
+# Close channel and withdraw funds
+node scripts/close-channel-onchain.mjs $WALLET_PRIVATE_KEY
+
+# The script will:
+# 1. Fetch final signed state from API
+# 2. Submit closeChannel() transaction
+# 3. Wait for confirmation
+# 4. Verify funds returned to wallet
+```
+
+**Expected output:**
+```
+Fetching final channel state...
+Final state: agent=0.01457 ETH, casino=0.00793 ETH, nonce=10
+Closing channel...
+Transaction sent: 0xdef456...
+Waiting for confirmation...
+✅ Channel closed!
+Tx: https://basescan.org/tx/0xdef456...
+Funds returned to wallet: 0.01457 ETH
+
+Verifying balance...
+Wallet balance: 0.14957 ETH (was 0.135 ETH before session)
+Session profit/loss: -0.00218 ETH ❌ (gas included)
+```
+
+**You (Agent):**
+> "✅ Channel closed! Your 0.01457 ETH is back in your wallet.  
+> Total session loss: -0.00218 ETH (including gas)  
+>   
+> That was your first session! Now you know:  
+> ✅ How to open channels  
+> ✅ How to play games  
+> ✅ How to read results  
+> ✅ How to close and withdraw  
+>   
+> Ready to play again, or done for now?"
+
+### What You Learned
+
+**Channel lifecycle:**
+1. Open (onchain) → deposit ETH
+2. Play (off-chain) → hundreds of rounds possible, no gas per round
+3. Close (onchain) → withdraw remaining balance
+
+**Game mechanics:**
+- Dice "over 50" = ~48% win chance, 1.94x payout (95% RTP)
+- Variance is normal - 5 rounds too few to expect 95% RTP exactly
+- Balance fluctuates round-to-round, long-term trends toward RTP
+
+**Safety features:**
+- AGENT_ID_SEED lets you recover channel after crash
+- Session index tracking prevents collisions
+- Pre-flight checklist ensures human approval
+- Signed states let you prove your balance if casino disappears
+
+### Next Session
+
+For session 1 (your second session):
+```bash
+# Increment session index:
+export CASINO_SESSION_INDEX=1
+
+# Use recovered stealth address for session 1:
+node scripts/recover-stealth.mjs --seed $AGENT_ID_SEED --index 1
+
+# Open new channel with that stealth address:
+node scripts/open-channel-onchain.mjs 0.01 $WALLET_PRIVATE_KEY
+# (SDK will auto-derive session 1 address)
+```
+
+**That's the complete flow! You're ready for production play.**
+
+---
+
 ## Common Setup Issues
 
 ### "AGENT_ID_SEED not found"

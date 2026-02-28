@@ -159,7 +159,38 @@ Deposit: 0.015 ETH
 Ready to open channel? (yes/no)"
 ```
 
-**Only proceed to Step 1 after explicit "yes".**
+#### Pre-Flight Safety Checklist ✈️
+
+**Before opening channel, verify with your human:**
+
+```
+Agent: "Before we start, let's confirm safety settings:
+
+☐ Game: Dice (95% RTP, up to 96x)
+☐ Bet per round: 0.001 ETH
+☐ Planned rounds: 10
+☐ Total at risk: 0.015 ETH
+☐ Stop-loss limit: [ask human, e.g., -0.005 ETH or -33%]
+☐ AGENT_ID_SEED saved: [confirm YES]
+☐ Session index logged: [confirm number, e.g., 0]
+☐ Wallet funded: ≥0.1 ETH on Base
+
+Important reminders:
+- This is gambling → you can lose all deposited funds
+- Stop-loss protects remaining balance if you're losing
+- You can stop anytime by saying 'stop' or 'close'
+- Channel funds are recoverable via AGENT_ID_SEED if I crash
+
+Ready to proceed? (yes/no)"
+```
+
+**Human must confirm:**
+1. They understand this is real money at risk
+2. They're comfortable with the bet amount
+3. Stop-loss limit is set (or explicitly waived)
+4. AGENT_ID_SEED is safely backed up
+
+**Only proceed to Step 1 after explicit "yes" to ALL confirmations.**
 
 ### Step 1: Open Channel (Onchain)
 

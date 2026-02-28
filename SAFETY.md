@@ -11,9 +11,10 @@ Emergency procedures, stop-loss strategies, recovery from AGENT_ID_SEED, error c
 1. [Stop-Loss Strategies](#stop-loss-strategies)
 2. [Emergency Procedures](#emergency-procedures)
 3. [Recovery from AGENT_ID_SEED](#recovery-from-agent_id_seed)
-4. [Common Errors](#common-errors)
-5. [Troubleshooting](#troubleshooting)
-6. [Warning Boxes](#warning-boxes)
+4. [State Backup Verification](#state-backup-verification)
+5. [Common Errors](#common-errors)
+6. [Troubleshooting](#troubleshooting)
+7. [Warning Boxes](#warning-boxes)
 
 ---
 
@@ -362,6 +363,136 @@ console.log('Stealth Private Key:', recovered.stealthPrivateKey);
 
 // Use recovered key to sign transactions
 const wallet = new ethers.Wallet(recovered.stealthPrivateKey, provider);
+```
+
+---
+
+## State Backup Verification
+
+**The SDK auto-saves channel states to `./casino-states/`. Verify these backups regularly.**
+
+### After Each Session
+
+```bash
+# 1. Check backups exist
+ls -lh ./casino-states/
+
+# Should show:
+# session-1234567890.json
+# round-1.json
+# round-2.json
+# ...
+# daily-loss-limit.json (if using stop-loss)
+```
+
+### Verify State File Integrity
+
+```bash
+# 2. Check latest state is valid JSON
+cat ./casino-states/session-$(date +%s).json | jq .
+
+# Should show:
+# {
+#   "channelId": "0x...",
+#   "agentBalance": "0.015",
+#   "casinoBalance": "0.015",
+#   "nonce": 42,
+#   "casinoSig": "0x..."
+# }
+```
+
+### Verify Critical Fields
+
+```bash
+# 3. Extract and verify signature
+jq -r '.casinoSig' ./casino-states/session-*.json | tail -1
+
+# Should show: 0x... (130 chars - 65 bytes hex)
+# If empty or "undefined" → NOT RECOVERABLE, dispute immediately
+
+# 4. Verify balance
+jq -r '.agentBalance' ./casino-states/session-*.json | tail -1
+
+# Should match expected balance from last round
+```
+
+### Backup Checklist ☑️
+
+**Run after every session:**
+
+- [ ] `./casino-states/session-*.json` exists and is valid JSON
+- [ ] Latest state has `casinoSig` (not null/undefined)
+- [ ] Balance in state matches expected (within 0.001 ETH tolerance)
+- [ ] Nonce increased correctly (should increment by 2 per round)
+- [ ] State file backed up to 2+ locations (e.g., cloud storage, USB drive)
+
+### Backup Best Practices
+
+**Option 1: Automatic cloud sync (Recommended)**
+```bash
+# Sync after each session
+rsync -av ./casino-states/ user@backup-server:casino-backups/
+```
+
+**Option 2: Git repository (Simple)**
+```bash
+# In casino-states directory:
+git init
+git add *.json
+git commit -m "Session $(date +%Y-%m-%d)"
+git push backup main
+```
+
+**Option 3: Manual copy (Minimal)**
+```bash
+# Copy to USB drive or cloud folder
+cp -r ./casino-states/ /path/to/backup/$(date +%Y-%m-%d)/
+```
+
+### What to Backup
+
+**Critical files (must backup):**
+- `session-*.json` - Latest signed state (needed for disputes)
+- `AGENT_ID_SEED` environment variable - Recovery key (in password manager)
+- Session index log - Tracks which index corresponds to which channel
+
+**Optional but recommended:**
+- `round-*.json` - Individual round states (helpful for debugging)
+- `daily-loss-limit.json` - Stop-loss tracking (helpful for continuity)
+- `lifetime-stats.json` - Historical data (helpful for analysis)
+
+### Verification Script
+
+```javascript
+// verify-backups.js
+const fs = require('fs');
+const path = require('path');
+
+const statesDir = './casino-states';
+const files = fs.readdirSync(statesDir).filter(f => f.startsWith('session-'));
+
+if (files.length === 0) {
+  console.log('❌ No session state files found!');
+  process.exit(1);
+}
+
+const latest = files.sort().pop();
+const statePath = path.join(statesDir, latest);
+const state = JSON.parse(fs.readFileSync(statePath));
+
+console.log('✅ Latest state file:', latest);
+console.log('Balance:', state.agentBalance, 'ETH');
+console.log('Nonce:', state.nonce);
+console.log('Signature:', state.casinoSig ? 'Present ✅' : 'MISSING ❌');
+
+if (!state.casinoSig) {
+  console.log('⚠️ WARNING: No casino signature - cannot prove state onchain!');
+}
+```
+
+**Run after each session:**
+```bash
+node verify-backups.js
 ```
 
 ---
